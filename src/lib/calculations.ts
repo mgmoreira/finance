@@ -15,8 +15,9 @@ export interface Position {
   pnl: number;
   pnlPct: number;
   portfolioPct: number;
-  // Species detail
-  stockPriceUsd: number; // US stock price from Yahoo (reference only)
+  // US prices (visual reference only, not used for balance)
+  avgStockPriceUsd: number; // avg entry US stock price (= avgPriceUsd * parity)
+  stockPriceUsd: number; // current US stock price from Yahoo
   ath: number; // US stock ATH from Yahoo
   athDistance: number; // % distance from US stock ATH
   dividendYield: number;
@@ -116,6 +117,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
       pnl: currentValue - invested,
       pnlPct: invested > 0 ? ((currentValue - invested) / invested) * 100 : 0,
       portfolioPct: 0, // calculated after totalValue is known
+      avgStockPriceUsd: avgPriceUsd * parity,
       stockPriceUsd,
       ath: pc?.ath ?? 0,
       athDistance: pc?.ath && pc.ath > 0 ? ((pc.ath - stockPriceUsd) / pc.ath) * 100 : 0,

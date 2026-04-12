@@ -18,7 +18,13 @@ export async function GET() {
       fetchQuotes(tickers).catch(() => new Map()),
     ]);
 
-    // Build CEDEAR lookup by ticker
+    // Map US ticker → BYMA ticker when they differ
+    const usToBymaTicker: Record<string, string> = {
+      BG: "BNG",
+      CRESY: "CRES",
+    };
+
+    // Build CEDEAR lookup by ticker (using both BYMA and US names)
     const cedearMap = new Map<string, { last: number }>();
     for (const c of cedears) {
       cedearMap.set(c.ticker, { last: c.last });
@@ -36,7 +42,9 @@ export async function GET() {
     // 3. Update price_cache for each ticker
     for (const ticker of tickers) {
       const yahoo = yahooQuotes.get(ticker);
-      const cedear = cedearMap.get(ticker);
+      // Look up CEDEAR price using BYMA ticker if different from US ticker
+      const bymaTicker = usToBymaTicker[ticker] ?? ticker;
+      const cedear = cedearMap.get(bymaTicker);
 
       const priceUsd = yahoo?.regularMarketPrice ?? 0; // US stock price (reference)
       const priceArs = cedear?.last ?? 0; // CEDEAR price in ARS (from data912)

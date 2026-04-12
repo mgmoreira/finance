@@ -60,5 +60,14 @@ export async function fetchMep(): Promise<MepLive> {
 export async function fetchCedearHistory(ticker: string): Promise<HistoricalOHLC[]> {
   const res = await fetch(`${BASE_URL}/historical/cedears/${ticker}`, { next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`data912 history failed for ${ticker}: ${res.status}`);
-  return res.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any[] = await res.json();
+  return raw.map((r) => ({
+    date: r.date,
+    open: r.o ?? 0,
+    high: r.h ?? 0,
+    low: r.l ?? 0,
+    close: r.c ?? 0,
+    volume: r.v ?? 0,
+  }));
 }

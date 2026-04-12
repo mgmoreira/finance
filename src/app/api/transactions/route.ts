@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, species } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { fetchMep } from "@/lib/data912";
+import { fetchMep, fetchCedearHistory } from "@/lib/data912";
+
+// Map US ticker → BYMA ticker when they differ
+const usToBymaTicker: Record<string, string> = {
+  BG: "BNG",
+  CRESY: "CRES",
+};
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { ticker, type, quantity, price, currency, date, exchangeRate: manualRate, newSpecies } = body;
 
-    // Validate required fields
-    if (!ticker || !type || !quantity || !price || !currency || !date) {
+    // Validate required fields (price is optional — auto-fetched if missing)
+    if (!ticker || !type || !quantity || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -41,12 +47,35 @@ export async function POST(request: NextRequest) {
     let priceArs: number;
     let priceUsd: number;
 
-    if (currency === "ARS") {
-      priceArs = price;
-      priceUsd = price / exchangeRate;
+    if (price) {
+      // User provided a price
+      const cur = currency || "ARS";
+      if (cur === "ARS") {
+        priceArs = price;
+        priceUsd = price / exchangeRate;
+      } else {
+        priceUsd = price;
+        priceArs = price * exchangeRate;
+      }
     } else {
-      priceUsd = price;
-      priceArs = price * exchangeRate;
+      // No price provided — fetch historical CEDEAR ARS price for that date
+      try {
+        const bymaTicker = usToBymaTicker[ticker] ?? ticker;
+        const history = await fetchCedearHistory(bymaTicker);
+        const sorted = history.sort((a, b) => a.date.localeCompare(b.date));
+        let match = sorted.find((h) => h.date === date);
+        if (!match) {
+          const before = sorted.filter((h) => h.date <= date);
+          match = before.length > 0 ? before[before.length - 1] : undefined;
+        }
+        if (!match || !match.close) {
+          return NextResponse.json({ error: `No se encontró precio para ${ticker} en ${date}. Ingresá el precio manualmente.` }, { status: 400 });
+        }
+        priceArs = match.close;
+        priceUsd = priceArs / exchangeRate;
+      } catch {
+        return NextResponse.json({ error: `No se pudo buscar el precio de ${ticker}. Ingresá el precio manualmente.` }, { status: 400 });
+      }
     }
 
     const totalArs = quantity * priceArs;
