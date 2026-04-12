@@ -42,13 +42,19 @@ export async function fetchCedears(): Promise<CedearLive[]> {
 export async function fetchMep(): Promise<MepLive> {
   const res = await fetch(`${BASE_URL}/live/mep`, { next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`data912 mep failed: ${res.status}`);
-  // MEP endpoint returns an array of tickers with implied rates
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const raw: any[] = await res.json();
-  // Average the "mark" field across entries for a representative MEP rate
-  const marks = raw.filter((r) => r.mark > 0).map((r) => r.mark as number);
-  const avgMep = marks.length > 0 ? marks.reduce((a, b) => a + b, 0) / marks.length : 0;
-  return { bid: avgMep, ask: avgMep, last: avgMep };
+  // Use AL30 bond (most liquid, standard MEP reference)
+  const al30 = raw.find((r) => r.ticker === "AL30");
+  if (al30) {
+    return { bid: al30.bid, ask: al30.ask, last: al30.mark };
+  }
+  // Fallback: most liquid bond entry
+  const bonds = raw.filter((r) => r.panel === "bonds").sort((a, b) => b.v_usd - a.v_usd);
+  if (bonds.length > 0) {
+    return { bid: bonds[0].bid, ask: bonds[0].ask, last: bonds[0].mark };
+  }
+  return { bid: 0, ask: 0, last: 0 };
 }
 
 export async function fetchCedearHistory(ticker: string): Promise<HistoricalOHLC[]> {
