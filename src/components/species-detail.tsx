@@ -40,6 +40,10 @@ export function SpeciesDetail({ position }: { position: Position }) {
         <span className="text-gray-400">Precio ARS</span>
         <p>${position.priceArs.toLocaleString("es-AR")}</p>
       </div>
+      <div>
+        <span className="text-gray-400">Precio EEUU</span>
+        <p>{formatUsd(position.stockPriceUsd)}</p>
+      </div>
     </div>
   );
 }

@@ -8,21 +8,22 @@ export interface Position {
   sector: string;
   country: string;
   quantity: number;
-  avgPriceUsd: number;
-  currentPriceUsd: number;
+  avgPriceUsd: number; // avg CEDEAR price in USD (from transactions)
+  currentPriceUsd: number; // current CEDEAR price in USD (= priceArs / mep)
   invested: number;
   currentValue: number;
   pnl: number;
   pnlPct: number;
   portfolioPct: number;
   // Species detail
-  ath: number;
-  athDistance: number;
+  stockPriceUsd: number; // US stock price from Yahoo (reference only)
+  ath: number; // US stock ATH from Yahoo
+  athDistance: number; // % distance from US stock ATH
   dividendYield: number;
-  monthStartPrice: number;
+  monthStartPrice: number; // CEDEAR USD price at month start
   monthChangePct: number;
   parity: number;
-  priceArs: number;
+  priceArs: number; // current CEDEAR price in ARS from data912
 }
 
 export interface PortfolioSummary {
@@ -56,6 +57,10 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   // 4. Get monthly snapshots
   const snapshots = await db.select().from(monthlySnapshots).orderBy(monthlySnapshots.yearMonth);
 
+  // Get MEP rate from price cache
+  const anyPriceEntry = allPrices.find((p) => p.ticker !== "__SPY__");
+  const mepRate = anyPriceEntry?.exchangeRateMep ?? 0;
+
   // 5. Calculate positions per ticker
   const tickerData = new Map<string, { buyQty: number; sellQty: number; buyTotalUsd: number; sellTotalUsd: number }>();
 
@@ -85,7 +90,15 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
 
     const avgPriceUsd = data.buyQty > 0 ? data.buyTotalUsd / data.buyQty : 0;
     const invested = data.buyTotalUsd - data.sellTotalUsd;
-    const currentPriceUsd = pc?.priceUsd ?? 0;
+
+    // CEDEAR price in USD = CEDEAR price ARS / dolar MEP
+    // Fallback: if no CEDEAR ARS price (e.g. not in data912), use US price / parity
+    const priceArs = pc?.priceArs ?? 0;
+    const parity = pc?.parity ?? sp?.parity ?? 1;
+    const stockPriceUsd = pc?.priceUsd ?? 0;
+    const currentPriceUsd = mepRate > 0 && priceArs > 0
+      ? priceArs / mepRate
+      : parity > 0 ? stockPriceUsd / parity : 0;
     const currentValue = quantity * currentPriceUsd;
 
     totalValue += currentValue;
@@ -103,15 +116,16 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
       pnl: currentValue - invested,
       pnlPct: invested > 0 ? ((currentValue - invested) / invested) * 100 : 0,
       portfolioPct: 0, // calculated after totalValue is known
+      stockPriceUsd,
       ath: pc?.ath ?? 0,
-      athDistance: pc?.ath && pc.ath > 0 ? ((pc.ath - currentPriceUsd) / pc.ath) * 100 : 0,
+      athDistance: pc?.ath && pc.ath > 0 ? ((pc.ath - stockPriceUsd) / pc.ath) * 100 : 0,
       dividendYield: sp?.dividendYield ?? 0,
       monthStartPrice: pc?.monthStartPrice ?? 0,
       monthChangePct: pc?.monthStartPrice && pc.monthStartPrice > 0
         ? ((currentPriceUsd - pc.monthStartPrice) / pc.monthStartPrice) * 100
         : 0,
-      parity: pc?.parity ?? sp?.parity ?? 1,
-      priceArs: pc?.priceArs ?? 0,
+      parity,
+      priceArs,
     });
   }
 
@@ -161,10 +175,8 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     ? ((sp500Price - sp500MonthStart) / sp500MonthStart) * 100
     : 0;
 
-  // MEP rate and last updated
-  const anyPrice = allPrices.find((p) => p.ticker !== "__SPY__");
-  const mepRate = anyPrice?.exchangeRateMep ?? 0;
-  const lastUpdated = anyPrice?.updatedAt ?? null;
+  // Last updated
+  const lastUpdated = anyPriceEntry?.updatedAt ?? null;
 
   return {
     totalValue,

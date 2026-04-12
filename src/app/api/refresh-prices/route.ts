@@ -38,19 +38,22 @@ export async function GET() {
       const yahoo = yahooQuotes.get(ticker);
       const cedear = cedearMap.get(ticker);
 
-      const priceUsd = yahoo?.regularMarketPrice ?? 0;
-      const priceArs = cedear?.last ?? 0;
+      const priceUsd = yahoo?.regularMarketPrice ?? 0; // US stock price (reference)
+      const priceArs = cedear?.last ?? 0; // CEDEAR price in ARS (from data912)
       const parity = speciesMap.get(ticker) ?? 1;
+
+      // CEDEAR price in USD = CEDEAR ARS / MEP
+      const cedearPriceUsd = mep.last > 0 && priceArs > 0 ? priceArs / mep.last : 0;
 
       // Get existing cache to preserve month_start_price
       const existing = await db.select().from(priceCache).where(eq(priceCache.ticker, ticker)).get();
 
-      // month_start_price: keep existing if same month, otherwise set to current
-      let monthStartPrice = existing?.monthStartPrice ?? priceUsd;
+      // month_start_price stores CEDEAR USD price at month start
+      let monthStartPrice = existing?.monthStartPrice ?? cedearPriceUsd;
       const existingMonth = existing?.updatedAt?.slice(0, 7);
       if (existingMonth && existingMonth !== currentMonth) {
-        // New month — set month start price to current
-        monthStartPrice = priceUsd;
+        // New month — set month start price to current CEDEAR USD price
+        monthStartPrice = cedearPriceUsd;
       }
 
       await db
