@@ -9,11 +9,12 @@ export interface YahooQuote {
 // Install: npm install yahoo-finance2
 
 export async function fetchQuotes(tickers: string[]): Promise<Map<string, YahooQuote>> {
-  const yahooFinance = (await import("yahoo-finance2")).default;
+  const YahooFinance = (await import("yahoo-finance2")).default;
+  const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
   const quotes = new Map<string, YahooQuote>();
 
   // Fetch in batches to avoid rate limits
-  const results = await yahooFinance.quote(tickers);
+  const results = await yf.quote(tickers);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resultArray: any[] = Array.isArray(results) ? results : [results];
 
@@ -31,6 +32,9 @@ export async function fetchQuotes(tickers: string[]): Promise<Map<string, YahooQ
 }
 
 export async function fetchSP500Price(): Promise<number> {
-  const quotes = await fetchQuotes(["SPY"]);
-  return quotes.get("SPY")?.regularMarketPrice ?? 0;
+  const YahooFinance = (await import("yahoo-finance2")).default;
+  const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+  const result = await yf.quote("SPY");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (result as any)?.regularMarketPrice ?? 0;
 }

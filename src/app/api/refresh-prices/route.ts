@@ -19,9 +19,15 @@ export async function GET() {
     ]);
 
     // Build CEDEAR lookup by ticker
-    const cedearMap = new Map<string, { last: number; ratio: number }>();
+    const cedearMap = new Map<string, { last: number }>();
     for (const c of cedears) {
-      cedearMap.set(c.ticker, { last: c.last, ratio: c.ratio });
+      cedearMap.set(c.ticker, { last: c.last });
+    }
+
+    // Build species lookup for parity
+    const speciesMap = new Map<string, number>();
+    for (const s of allSpecies) {
+      speciesMap.set(s.ticker, s.parity ?? 1);
     }
 
     const now = new Date().toISOString();
@@ -34,7 +40,7 @@ export async function GET() {
 
       const priceUsd = yahoo?.regularMarketPrice ?? 0;
       const priceArs = cedear?.last ?? 0;
-      const parity = cedear?.ratio ?? 1;
+      const parity = speciesMap.get(ticker) ?? 1;
 
       // Get existing cache to preserve month_start_price
       const existing = await db.select().from(priceCache).where(eq(priceCache.ticker, ticker)).get();
