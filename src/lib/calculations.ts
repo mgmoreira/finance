@@ -63,16 +63,21 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   const mepRate = anyPriceEntry?.exchangeRateMep ?? 0;
 
   // 5. Calculate positions per ticker
-  const tickerData = new Map<string, { buyQty: number; sellQty: number; buyTotalUsd: number; sellTotalUsd: number }>();
+  const tickerData = new Map<string, {
+    buyQty: number; sellQty: number;
+    buyTotalUsd: number; sellTotalUsd: number;
+    buyStockTotalUsd: number; // sum of stockPriceUsd * quantity for BUYs
+  }>();
 
   for (const tx of allTxns) {
     if (!tickerData.has(tx.ticker)) {
-      tickerData.set(tx.ticker, { buyQty: 0, sellQty: 0, buyTotalUsd: 0, sellTotalUsd: 0 });
+      tickerData.set(tx.ticker, { buyQty: 0, sellQty: 0, buyTotalUsd: 0, sellTotalUsd: 0, buyStockTotalUsd: 0 });
     }
     const d = tickerData.get(tx.ticker)!;
     if (tx.type === "BUY") {
       d.buyQty += tx.quantity;
       d.buyTotalUsd += tx.totalUsd;
+      d.buyStockTotalUsd += (tx.stockPriceUsd ?? 0) * tx.quantity;
     } else {
       d.sellQty += tx.quantity;
       d.sellTotalUsd += tx.totalUsd;
@@ -117,7 +122,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
       pnl: currentValue - invested,
       pnlPct: invested > 0 ? ((currentValue - invested) / invested) * 100 : 0,
       portfolioPct: 0, // calculated after totalValue is known
-      avgStockPriceUsd: avgPriceUsd * parity,
+      avgStockPriceUsd: data.buyQty > 0 ? data.buyStockTotalUsd / data.buyQty : 0,
       stockPriceUsd,
       ath: pc?.ath ?? 0,
       athDistance: pc?.ath && pc.ath > 0 ? ((pc.ath - stockPriceUsd) / pc.ath) * 100 : 0,
@@ -255,6 +260,7 @@ export interface TransactionRow {
   priceUsd: number;
   totalUsd: number;
   exchangeRate: number;
+  stockPriceUsd: number | null;
   date: string;
   currency: string;
 }
@@ -274,6 +280,7 @@ export async function getAllTransactions(): Promise<TransactionRow[]> {
     priceUsd: r.priceUsd,
     totalUsd: r.totalUsd,
     exchangeRate: r.exchangeRate,
+    stockPriceUsd: r.stockPriceUsd,
     date: r.date,
     currency: r.currency,
   }));

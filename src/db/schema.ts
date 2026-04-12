@@ -11,6 +11,7 @@ export const transactions = sqliteTable("transactions", {
   totalArs: real("total_ars").notNull(),
   totalUsd: real("total_usd").notNull(),
   exchangeRate: real("exchange_rate").notNull(),
+  stockPriceUsd: real("stock_price_usd"), // US stock price at time of purchase (reference)
   date: text("date").notNull(),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });

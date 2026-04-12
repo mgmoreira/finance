@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { transactions, species } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { fetchMep, fetchCedearHistory } from "@/lib/data912";
+import { fetchQuotes } from "@/lib/yahoo";
 
 // Map US ticker → BYMA ticker when they differ
 const usToBymaTicker: Record<string, string> = {
@@ -81,6 +82,15 @@ export async function POST(request: NextRequest) {
     const totalArs = quantity * priceArs;
     const totalUsd = quantity * priceUsd;
 
+    // Fetch current US stock price for reference
+    let stockPriceUsd: number | null = null;
+    try {
+      const quotes = await fetchQuotes([ticker]);
+      stockPriceUsd = quotes.get(ticker)?.regularMarketPrice ?? null;
+    } catch {
+      // Non-critical, continue without it
+    }
+
     // Insert transaction
     const result = await db.insert(transactions).values({
       ticker,
@@ -92,6 +102,7 @@ export async function POST(request: NextRequest) {
       totalArs,
       totalUsd,
       exchangeRate,
+      stockPriceUsd,
       date,
     }).returning();
 
