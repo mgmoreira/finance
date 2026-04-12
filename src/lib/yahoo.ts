@@ -14,7 +14,8 @@ export async function fetchQuotes(tickers: string[]): Promise<Map<string, YahooQ
 
   // Fetch in batches to avoid rate limits
   const results = await yahooFinance.quote(tickers);
-  const resultArray = Array.isArray(results) ? results : [results];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resultArray: any[] = Array.isArray(results) ? results : [results];
 
   for (const q of resultArray) {
     if (!q.symbol) continue;
