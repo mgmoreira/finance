@@ -1,11 +1,11 @@
 import { Position } from "@/lib/calculations";
-import { formatUsd, formatPct, formatNumber } from "@/lib/format";
+import { formatUsd, formatPct } from "@/lib/format";
 
 export function SpeciesDetail({ position }: { position: Position }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-800/50 text-sm">
       <div>
-        <span className="text-gray-400">ATH</span>
+        <span className="text-gray-400">ATH (EEUU)</span>
         <p>{formatUsd(position.ath)}</p>
       </div>
       <div>
@@ -19,7 +19,7 @@ export function SpeciesDetail({ position }: { position: Position }) {
         <p>{position.dividendYield > 0 ? `${position.dividendYield.toFixed(2)}%` : "—"}</p>
       </div>
       <div>
-        <span className="text-gray-400">Var. mes</span>
+        <span className="text-gray-400">Var. mes (CEDEAR USD)</span>
         <p className={position.monthChangePct >= 0 ? "text-green-400" : "text-red-400"}>
           {formatUsd(position.monthStartPrice)} → {formatUsd(position.currentPriceUsd)} ({formatPct(position.monthChangePct)})
         </p>
@@ -39,10 +39,6 @@ export function SpeciesDetail({ position }: { position: Position }) {
       <div>
         <span className="text-gray-400">Precio ARS</span>
         <p>${position.priceArs.toLocaleString("es-AR")}</p>
-      </div>
-      <div>
-        <span className="text-gray-400">Precio EEUU</span>
-        <p>{formatUsd(position.stockPriceUsd)}</p>
       </div>
     </div>
   );

@@ -161,6 +161,8 @@ const seedSnapshots = [
   { yearMonth: "2025-11", portfolioValueUsd: 71625, depositsUsd: 2891, gainUsd: 6641, gainPct: 10.94, sp500Value: null },
   { yearMonth: "2025-12", portfolioValueUsd: 72672, depositsUsd: 3797, gainUsd: 1047, gainPct: 1.46, sp500Value: null },
   { yearMonth: "2026-01", portfolioValueUsd: 72553, depositsUsd: 0, gainUsd: -119, gainPct: -0.16, sp500Value: null },
+  { yearMonth: "2026-02", portfolioValueUsd: 72672, depositsUsd: 3138, gainUsd: 1047, gainPct: 1.46, sp500Value: null },
+  { yearMonth: "2026-03", portfolioValueUsd: 73610, depositsUsd: 1057, gainUsd: -119, gainPct: -0.16, sp500Value: null },
 ];
 
 async function seed() {

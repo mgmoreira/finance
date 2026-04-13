@@ -5,7 +5,7 @@ import { Position } from "@/lib/calculations";
 import { formatUsd, formatPct, formatNumber } from "@/lib/format";
 import { SpeciesDetail } from "./species-detail";
 
-type SortKey = "ticker" | "quantity" | "avgPriceUsd" | "currentPriceUsd" | "avgStockPriceUsd" | "stockPriceUsd" | "invested" | "currentValue" | "pnl" | "pnlPct" | "portfolioPct";
+type SortKey = "ticker" | "quantity" | "avgStockPriceUsd" | "stockPriceUsd" | "invested" | "currentValue" | "pnl" | "pnlPct" | "portfolioPct";
 
 interface Props {
   positions: Position[];
@@ -86,31 +86,29 @@ export function PositionsTable({ positions }: Props) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-gray-400 text-left border-b border-gray-800">
+            <tr className="text-gray-400 text-left border-b border-gray-700">
+              {/* Identificación */}
               <th className="py-2 px-2 cursor-pointer hover:text-white" onClick={() => toggleSort("ticker")}>
                 Ticker{sortIcon("ticker")}
               </th>
               <th className="py-2 px-2 cursor-pointer hover:text-white text-right" onClick={() => toggleSort("quantity")}>
                 Cant{sortIcon("quantity")}
               </th>
-              <th className="py-2 px-2 cursor-pointer hover:text-white text-right" onClick={() => toggleSort("avgPriceUsd")}>
-                Prom USD{sortIcon("avgPriceUsd")}
-              </th>
-              <th className="py-2 px-2 cursor-pointer hover:text-white text-right" onClick={() => toggleSort("currentPriceUsd")}>
-                Actual USD{sortIcon("currentPriceUsd")}
-              </th>
-              <th className="py-2 px-2 cursor-pointer hover:text-white text-right text-blue-400/70" onClick={() => toggleSort("avgStockPriceUsd")}>
+              {/* Precios EEUU (referencia) */}
+              <th className="py-2 px-2 cursor-pointer hover:text-white text-right bg-blue-950/30" onClick={() => toggleSort("avgStockPriceUsd")}>
                 Prom EEUU{sortIcon("avgStockPriceUsd")}
               </th>
-              <th className="py-2 px-2 cursor-pointer hover:text-white text-right text-blue-400/70" onClick={() => toggleSort("stockPriceUsd")}>
+              <th className="py-2 px-2 cursor-pointer hover:text-white text-right bg-blue-950/30" onClick={() => toggleSort("stockPriceUsd")}>
                 Actual EEUU{sortIcon("stockPriceUsd")}
               </th>
-              <th className="py-2 px-2 cursor-pointer hover:text-white text-right" onClick={() => toggleSort("invested")}>
+              {/* Balance */}
+              <th className="py-2 px-2 cursor-pointer hover:text-white text-right bg-emerald-950/20" onClick={() => toggleSort("invested")}>
                 Invertido{sortIcon("invested")}
               </th>
-              <th className="py-2 px-2 cursor-pointer hover:text-white text-right" onClick={() => toggleSort("currentValue")}>
+              <th className="py-2 px-2 cursor-pointer hover:text-white text-right bg-emerald-950/20" onClick={() => toggleSort("currentValue")}>
                 Valor Actual{sortIcon("currentValue")}
               </th>
+              {/* P&L */}
               <th className="py-2 px-2 cursor-pointer hover:text-white text-right" onClick={() => toggleSort("pnl")}>
                 P&L ${sortIcon("pnl")}
               </th>
@@ -131,12 +129,10 @@ export function PositionsTable({ positions }: Props) {
                 >
                   <td className="py-2 px-2 font-medium">{pos.ticker}</td>
                   <td className="py-2 px-2 text-right">{pos.quantity}</td>
-                  <td className="py-2 px-2 text-right">{formatNumber(pos.avgPriceUsd)}</td>
-                  <td className="py-2 px-2 text-right">{formatNumber(pos.currentPriceUsd)}</td>
-                  <td className="py-2 px-2 text-right text-blue-400/70">{formatNumber(pos.avgStockPriceUsd)}</td>
-                  <td className="py-2 px-2 text-right text-blue-400/70">{formatNumber(pos.stockPriceUsd)}</td>
-                  <td className="py-2 px-2 text-right">{formatUsd(pos.invested)}</td>
-                  <td className="py-2 px-2 text-right">{formatUsd(pos.currentValue)}</td>
+                  <td className="py-2 px-2 text-right text-blue-400/70 bg-blue-950/10">{formatNumber(pos.avgStockPriceUsd)}</td>
+                  <td className="py-2 px-2 text-right text-blue-400/70 bg-blue-950/10">{formatNumber(pos.stockPriceUsd)}</td>
+                  <td className="py-2 px-2 text-right bg-emerald-950/10">{formatUsd(pos.invested)}</td>
+                  <td className="py-2 px-2 text-right bg-emerald-950/10">{formatUsd(pos.currentValue)}</td>
                   <td className={`py-2 px-2 text-right ${pos.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                     {formatUsd(pos.pnl)}
                   </td>
@@ -147,7 +143,7 @@ export function PositionsTable({ positions }: Props) {
                 </tr>
                 {expandedTicker === pos.ticker && (
                   <tr>
-                    <td colSpan={11}>
+                    <td colSpan={9}>
                       <SpeciesDetail position={pos} />
                     </td>
                   </tr>

@@ -32,7 +32,7 @@ export function InvestmentsByDate({ byDate, byMonth }: Props) {
             </tr>
           </thead>
           <tbody>
-            {byDate.map((row) => (
+            {[...byDate].reverse().map((row) => (
               <tr key={row.date} className="border-b border-gray-800/50">
                 <td className="py-1.5 px-2">{formatDate(row.date)}</td>
                 <td className="py-1.5 px-2 text-right">{formatUsd(row.totalUsd)}</td>
