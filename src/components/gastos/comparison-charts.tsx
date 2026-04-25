@@ -4,6 +4,11 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -95,6 +100,7 @@ export function ComparisonCharts({
   const c1 = useContainerWidth();
   const c2 = useContainerWidth();
   const c3 = useContainerWidth();
+  const c4 = useContainerWidth();
 
   const categoryNames = useMemo(
     () => [...new Set(byCategory.map((c) => c.category))].sort(),
@@ -401,6 +407,109 @@ export function ComparisonCharts({
           )}
         </div>
       </div>
+
+      {/* Savings rate line chart */}
+      {monthlyTotals.length >= 2 && (
+        <div className="bg-gray-900 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-400 mb-1">TASA DE AHORRO MENSUAL</h3>
+          <p className="text-xs text-gray-500 mb-3">% del sueldo invertido por mes</p>
+          <div ref={c4.ref} style={{ width: "100%" }}>
+            {c4.width > 0 && (
+              <LineChart
+                width={c4.width}
+                height={220}
+                data={monthlyTotals.map((m) => ({
+                  month: formatMonthShort(m.yearMonth),
+                  pct: m.salary > 0 ? parseFloat(((m.totalInvested / m.salary) * 100).toFixed(1)) : 0,
+                  monto: m.totalInvested,
+                }))}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" tick={axisTick} />
+                <YAxis tick={axisTick} tickFormatter={(v) => `${v}%`} domain={[0, "auto"]} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  labelStyle={labelStyle}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any, name: any) => {
+                    if (name === "pct") return [`${value}%`, "% Invertido"];
+                    return [formatArs(Number(value)), "Monto"];
+                  }}
+                />
+                <ReferenceLine y={20} stroke="#374151" strokeDasharray="4 2" label={{ value: "20%", fill: "#6b7280", fontSize: 10 }} />
+                <Line
+                  type="monotone"
+                  dataKey="pct"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#22c55e" }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Current month category donut */}
+      {(() => {
+        const latestMonth = months[months.length - 1];
+        const catData = byCategory
+          .map((cat) => ({
+            name: cat.category,
+            value: cat.amounts[latestMonth] ?? 0,
+            color: cat.color,
+          }))
+          .filter((d) => d.value > 0);
+        const total = catData.reduce((s, d) => s + d.value, 0);
+        if (catData.length === 0 || total === 0) return null;
+        return (
+          <div className="bg-gray-900 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-400 mb-1">
+              MES ACTUAL — POR CATEGORÍA
+              <span className="text-gray-600 font-normal ml-2">{formatMonthShort(latestMonth)}</span>
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">Total: {formatArs(total)}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+              <PieChart width={180} height={180}>
+                <Pie
+                  data={catData}
+                  cx={85}
+                  cy={85}
+                  innerRadius={52}
+                  outerRadius={80}
+                  dataKey="value"
+                  strokeWidth={0}
+                >
+                  {catData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  labelStyle={labelStyle}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any, name: any) => [
+                    `${formatArs(Number(value))} (${total > 0 ? ((Number(value) / total) * 100).toFixed(1) : 0}%)`,
+                    String(name),
+                  ]}
+                />
+              </PieChart>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                {catData.map((cat) => (
+                  <div key={cat.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: cat.color, flexShrink: 0 }} />
+                    <span style={{ color: "#9ca3af" }}>{cat.name}</span>
+                    <strong style={{ color: "#d1d5db", marginLeft: "auto", paddingLeft: 16 }}>
+                      {total > 0 ? ((cat.value / total) * 100).toFixed(1) : 0}%
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
