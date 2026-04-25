@@ -86,7 +86,7 @@ export function PortfolioCharts({ snapshots }: Props) {
       const delta = currNetWorth - prevNetWorth;
       return {
         month: formatMonthShort(s.yearMonth),
-        gain: i === 0 ? currNetWorth : delta,
+        gain: delta,
       };
     });
   }, [snapshots]);
