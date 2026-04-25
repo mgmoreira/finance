@@ -436,7 +436,7 @@ export function ComparisonCharts({
                     return [formatArs(Number(value)), "Monto"];
                   }}
                 />
-                <ReferenceLine y={20} stroke="#374151" strokeDasharray="4 2" label={{ value: "20%", fill: "#6b7280", fontSize: 10 }} />
+                <ReferenceLine y={20} stroke="#4b5563" strokeDasharray="4 2" label={{ value: "20%", fill: "#6b7280", fontSize: 10 }} />
                 <Line
                   type="monotone"
                   dataKey="pct"
@@ -454,6 +454,7 @@ export function ComparisonCharts({
       {/* Current month category donut */}
       {(() => {
         const latestMonth = months[months.length - 1];
+        if (!latestMonth) return null;
         const catData = byCategory
           .map((cat) => ({
             name: cat.category,
