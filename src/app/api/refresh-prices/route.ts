@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { priceCache, species } from "@/db/schema";
-import { fetchCedears, fetchMep } from "@/lib/data912";
+import { priceCache, species, monthlySnapshots } from "@/db/schema";
+import { fetchCedears, fetchArgStocks, fetchMep } from "@/lib/data912";
 import { fetchQuotes } from "@/lib/yahoo";
 import { eq } from "drizzle-orm";
 
@@ -12,8 +12,9 @@ export async function GET() {
     const tickers = allSpecies.map((s) => s.ticker);
 
     // 2. Fetch data from APIs in parallel
-    const [cedears, mep, yahooQuotes] = await Promise.all([
+    const [cedears, argStocks, mep, yahooQuotes] = await Promise.all([
       fetchCedears().catch(() => []),
+      fetchArgStocks().catch(() => []),
       fetchMep().catch(() => ({ last: 0 })),
       fetchQuotes(tickers).catch(() => new Map()),
     ]);
@@ -24,10 +25,23 @@ export async function GET() {
       CRESY: "CRES",
     };
 
-    // Build CEDEAR lookup by ticker (using both BYMA and US names)
+    // Map US ticker → BYMA local ticker for Argentine stocks (not CEDEARs)
+    const usToLocalTicker: Record<string, string> = {
+      YPF: "YPFD",
+      TGS: "TGSU2",
+      CRESY: "CRES",
+    };
+
+    // Build CEDEAR lookup by ticker
     const cedearMap = new Map<string, { last: number }>();
     for (const c of cedears) {
       cedearMap.set(c.ticker, { last: c.last });
+    }
+
+    // Build Argentine stocks lookup by ticker
+    const argStockMap = new Map<string, { last: number }>();
+    for (const s of argStocks) {
+      argStockMap.set(s.ticker, { last: s.last });
     }
 
     // Build species lookup for parity
@@ -46,8 +60,12 @@ export async function GET() {
       const bymaTicker = usToBymaTicker[ticker] ?? ticker;
       const cedear = cedearMap.get(bymaTicker);
 
+      // For Argentine stocks not in CEDEARs, look up in arg_stocks
+      const localTicker = usToLocalTicker[ticker];
+      const argStock = localTicker ? argStockMap.get(localTicker) : undefined;
+
       const priceUsd = yahoo?.regularMarketPrice ?? 0; // US stock price (reference)
-      const priceArs = cedear?.last ?? 0; // CEDEAR price in ARS (from data912)
+      const priceArs = cedear?.last || argStock?.last || 0; // CEDEAR or local stock price in ARS
       const parity = speciesMap.get(ticker) ?? 1;
 
       // CEDEAR price in USD = CEDEAR ARS / MEP
@@ -121,6 +139,14 @@ export async function GET() {
           updatedAt: now,
         },
       });
+
+    // Update sp500Value in current month's snapshot if it exists
+    if (spyPrice > 0) {
+      await db
+        .update(monthlySnapshots)
+        .set({ sp500Value: spyPrice })
+        .where(eq(monthlySnapshots.yearMonth, currentMonth));
+    }
 
     return NextResponse.json({ ok: true, updated: tickers.length, timestamp: now });
   } catch (error) {
