@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { transactions, priceCache, species, monthlySnapshots } from "@/db/schema";
+import { transactions, priceCache, species, monthlySnapshots, cashMovements } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 
 export interface Position {
@@ -38,8 +38,11 @@ export interface PortfolioSummary {
   positions: Position[];
   byCountry: { country: string; value: number; pct: number }[];
   bySector: { sector: string; value: number; pct: number }[];
-  monthlyStats: { yearMonth: string; gainPct: number; gainUsd: number; portfolioValue: number }[];
+  monthlyStats: { yearMonth: string; gainPct: number; gainUsd: number; portfolioValue: number; depositsUsd: number; sp500Value: number | null }[];
   mepRate: number;
+  cashBalanceArs: number;
+  cashBalanceUsd: number;
+  cashBalanceTotal: number;
   lastUpdated: string | null;
 }
 
@@ -57,6 +60,15 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
 
   // 4. Get monthly snapshots
   const snapshots = await db.select().from(monthlySnapshots).orderBy(monthlySnapshots.yearMonth);
+
+  // 5. Get cash balances by currency
+  const allCashMovements = await db.select().from(cashMovements);
+  const cashBalanceUsd = allCashMovements
+    .filter((m) => (m.currency ?? "USD") === "USD")
+    .reduce((sum, m) => sum + m.amount, 0);
+  const cashBalanceArs = allCashMovements
+    .filter((m) => m.currency === "ARS")
+    .reduce((sum, m) => sum + m.amount, 0);
 
   // Get MEP rate from price cache
   const anyPriceEntry = allPrices.find((p) => p.ticker !== "__SPY__");
@@ -95,7 +107,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     const pc = priceMap.get(ticker);
 
     const avgPriceUsd = data.buyQty > 0 ? data.buyTotalUsd / data.buyQty : 0;
-    const invested = data.buyTotalUsd - data.sellTotalUsd;
+    const invested = quantity * avgPriceUsd;
 
     // CEDEAR price in USD = CEDEAR price ARS / dolar MEP
     // Fallback: if no CEDEAR ARS price (e.g. not in data912), use US price / parity
@@ -136,7 +148,10 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     });
   }
 
-  // Calculate portfolio percentages
+  const cashBalanceTotal = cashBalanceUsd + (mepRate > 0 ? cashBalanceArs / mepRate : 0);
+  // Cash is shown separately in the header — not included in balance or P&L
+
+  // Calculate portfolio percentages (positions only)
   for (const pos of positions) {
     pos.portfolioPct = totalValue > 0 ? (pos.currentValue / totalValue) * 100 : 0;
   }
@@ -172,6 +187,8 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     gainPct: s.gainPct,
     gainUsd: s.gainUsd,
     portfolioValue: s.portfolioValueUsd,
+    depositsUsd: s.depositsUsd,
+    sp500Value: s.sp500Value ?? null,
   }));
 
   // S&P500
@@ -198,6 +215,9 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     bySector,
     monthlyStats,
     mepRate,
+    cashBalanceArs,
+    cashBalanceUsd,
+    cashBalanceTotal,
     lastUpdated,
   };
 }
