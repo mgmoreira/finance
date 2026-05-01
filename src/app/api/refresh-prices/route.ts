@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { priceCache, species, monthlySnapshots } from "@/db/schema";
-import { fetchCedears, fetchArgStocks, fetchMep } from "@/lib/data912";
+import { priceCache, species, monthlySnapshots, transactions } from "@/db/schema";
+import { fetchCedears, fetchArgStocks, fetchMep, fetchCedearHistory } from "@/lib/data912";
 import { fetchQuotes } from "@/lib/yahoo";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
   try {
@@ -12,12 +12,26 @@ export async function GET() {
     const tickers = allSpecies.map((s) => s.ticker);
 
     // 2. Fetch data from APIs in parallel
-    const [cedears, argStocks, mep, yahooQuotes] = await Promise.all([
+    const [cedears, argStocks, rawMep, yahooQuotes] = await Promise.all([
       fetchCedears().catch(() => []),
       fetchArgStocks().catch(() => []),
       fetchMep().catch(() => ({ last: 0 })),
       fetchQuotes(tickers).catch(() => new Map()),
     ]);
+
+    // If MEP API returns 0 (market closed / holiday), recover from transactions table.
+    // Exchange rates stored on past transactions are never overwritten — reliable fallback.
+    let effectiveMepRate = rawMep.last;
+    if (effectiveMepRate <= 0) {
+      const recentTxns = await db
+        .select({ rate: transactions.exchangeRate })
+        .from(transactions)
+        .orderBy(desc(transactions.date))
+        .limit(20);
+      const validTxn = recentTxns.find((t) => (t.rate ?? 0) > 100); // MEP is always > 100 ARS/USD
+      effectiveMepRate = validTxn?.rate ?? 0;
+    }
+    const mep = { last: effectiveMepRate };
 
     // Map US ticker → BYMA ticker when they differ
     const usToBymaTicker: Record<string, string> = {
@@ -65,21 +79,43 @@ export async function GET() {
       const argStock = localTicker ? argStockMap.get(localTicker) : undefined;
 
       const priceUsd = yahoo?.regularMarketPrice ?? 0; // US stock price (reference)
-      const priceArs = cedear?.last || argStock?.last || 0; // CEDEAR or local stock price in ARS
       const parity = speciesMap.get(ticker) ?? 1;
+
+      // Get existing cache first — needed to fall back to previous prices on holidays
+      const existing = await db.select().from(priceCache).where(eq(priceCache.ticker, ticker)).get();
+
+      // If market closed (data912 returns 0), keep existing ARS price rather than overwriting with 0
+      const freshPriceArs = cedear?.last || argStock?.last || 0;
+      const priceArs = freshPriceArs > 0 ? freshPriceArs : (existing?.priceArs ?? 0);
 
       // CEDEAR price in USD = CEDEAR ARS / MEP
       const cedearPriceUsd = mep.last > 0 && priceArs > 0 ? priceArs / mep.last : 0;
 
-      // Get existing cache to preserve month_start_price
-      const existing = await db.select().from(priceCache).where(eq(priceCache.ticker, ticker)).get();
-
       // month_start_price stores CEDEAR USD price at month start
-      let monthStartPrice = existing?.monthStartPrice ?? cedearPriceUsd;
       const existingMonth = existing?.updatedAt?.slice(0, 7);
-      if (existingMonth && existingMonth !== currentMonth) {
-        // New month — set month start price to current CEDEAR USD price
-        monthStartPrice = cedearPriceUsd;
+      const sameMonth = existingMonth === currentMonth;
+      const hasValidMonthStart = existing?.monthStartPrice && existing.monthStartPrice > 0;
+
+      let monthStartPrice: number;
+      if (hasValidMonthStart && sameMonth) {
+        // Common case: same month, keep existing month start price
+        monthStartPrice = existing!.monthStartPrice!;
+      } else {
+        // New month or missing data — fetch historical price for month start date
+        const monthStartDate = `${currentMonth}-01`;
+        try {
+          const history = await fetchCedearHistory(bymaTicker);
+          const closest = history
+            .filter((h) => h.date <= monthStartDate)
+            .sort((a, b) => b.date.localeCompare(a.date))[0];
+          if (closest?.close && closest.close > 0 && mep.last > 0) {
+            monthStartPrice = closest.close / mep.last;
+          } else {
+            monthStartPrice = cedearPriceUsd || existing?.monthStartPrice || 0;
+          }
+        } catch {
+          monthStartPrice = cedearPriceUsd || existing?.monthStartPrice || 0;
+        }
       }
 
       await db

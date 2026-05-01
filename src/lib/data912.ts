@@ -47,7 +47,9 @@ export async function fetchMep(): Promise<MepLive> {
   // Use AL30 bond (most liquid, standard MEP reference)
   const al30 = raw.find((r) => r.ticker === "AL30");
   if (al30) {
-    return { bid: al30.bid, ask: al30.ask, last: al30.mark };
+    // On holidays mark can be 0 — fall back to bid or ask from last session
+    const last = al30.mark || al30.bid || al30.ask || 0;
+    return { bid: al30.bid, ask: al30.ask, last };
   }
   // Fallback: most liquid bond entry
   const bonds = raw.filter((r) => r.panel === "bonds").sort((a, b) => b.v_usd - a.v_usd);
@@ -55,6 +57,31 @@ export async function fetchMep(): Promise<MepLive> {
     return { bid: bonds[0].bid, ask: bonds[0].ask, last: bonds[0].mark };
   }
   return { bid: 0, ask: 0, last: 0 };
+}
+
+export async function fetchArgStocks(): Promise<CedearLive[]> {
+  const res = await fetch(`${BASE_URL}/live/arg_stocks`, { next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`data912 arg_stocks failed: ${res.status}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any[] = await res.json();
+  // Some tickers appear twice (ARS and USD). Keep the ARS entry (higher price).
+  const byTicker = new Map<string, CedearLive>();
+  for (const r of raw) {
+    const ticker = r.symbol as string;
+    const last = r.c ?? 0;
+    const existing = byTicker.get(ticker);
+    if (!existing || last > existing.last) {
+      byTicker.set(ticker, {
+        ticker,
+        bid: r.px_bid ?? 0,
+        ask: r.px_ask ?? 0,
+        last,
+        volume: r.v ?? 0,
+        ratio: 0,
+      });
+    }
+  }
+  return [...byTicker.values()];
 }
 
 export async function fetchCedearHistory(ticker: string): Promise<HistoricalOHLC[]> {

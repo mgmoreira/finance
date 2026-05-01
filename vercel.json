@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/close-month",
+      "schedule": "5 0 1 * *"
+    }
+  ]
+}

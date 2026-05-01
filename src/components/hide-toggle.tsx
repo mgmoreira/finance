@@ -25,8 +25,10 @@ export function HideToggle() {
   return (
     <button
       onClick={toggle}
-      className="text-gray-500 hover:text-gray-300 transition-colors px-1"
       title={hidden ? "Mostrar montos" : "Ocultar montos"}
+      style={{ color: "var(--text-mute)", background: "transparent", border: "none", cursor: "pointer", padding: "0 4px", lineHeight: 0 }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-dim)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-mute)"; }}
     >
       {hidden ? (
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -194,6 +194,28 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   // S&P500
   const spyCache = priceMap.get("__SPY__");
   const sp500Price = spyCache?.priceUsd ?? 0;
+
+  // Append current month if not already covered by a snapshot
+  const now = new Date();
+  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const lastSnapshot = monthlyStats[monthlyStats.length - 1];
+  if (!lastSnapshot || lastSnapshot.yearMonth < currentYearMonth) {
+    // Net deposits this month = sum of BUYs - SELLs from transactions dated this month
+    const currentMonthDeposits = allTxns
+      .filter((tx) => tx.date.startsWith(currentYearMonth))
+      .reduce((sum, tx) => sum + (tx.type === "BUY" ? tx.totalUsd : -tx.totalUsd), 0);
+    const prevPortfolio = lastSnapshot?.portfolioValue ?? 0;
+    const currentGainUsd = totalValue - prevPortfolio - currentMonthDeposits;
+    const currentGainPct = prevPortfolio > 0 ? (currentGainUsd / prevPortfolio) * 100 : 0;
+    monthlyStats.push({
+      yearMonth: currentYearMonth,
+      gainPct: currentGainPct,
+      gainUsd: currentGainUsd,
+      portfolioValue: totalValue,
+      depositsUsd: Math.max(0, currentMonthDeposits),
+      sp500Value: sp500Price > 0 ? sp500Price : null,
+    });
+  }
   const sp500MonthStart = spyCache?.sp500MonthStart ?? 0;
   const sp500MonthChangePct = sp500MonthStart > 0
     ? ((sp500Price - sp500MonthStart) / sp500MonthStart) * 100
@@ -269,6 +291,98 @@ export async function getInvestmentsByDate(): Promise<{ byDate: InvestmentByDate
     .sort((a, b) => a.month.localeCompare(b.month));
 
   return { byDate, byMonth };
+}
+
+export interface RealizedSell {
+  id: number;
+  date: string;
+  ticker: string;
+  name: string;
+  quantity: number;
+  avgCostUsd: number;
+  sellPriceUsd: number;
+  realizedGainUsd: number;
+  realizedGainPct: number;
+}
+
+export interface TickerRealizedSummary {
+  ticker: string;
+  name: string;
+  sells: RealizedSell[];
+  totalReceivedUsd: number;
+  totalCostUsd: number;
+  totalGainUsd: number;
+  totalGainPct: number;
+}
+
+export interface RealizedPnlData {
+  byTicker: TickerRealizedSummary[];
+  allSells: RealizedSell[];
+  totalGainUsd: number;
+}
+
+export async function getRealizedPnl(): Promise<RealizedPnlData> {
+  const allTxns = await db.select().from(transactions).orderBy(transactions.date);
+  const allSpecies = await db.select().from(species);
+  const speciesMap = new Map(allSpecies.map((s) => [s.ticker, s]));
+
+  // Track avg cost per ticker as transactions are processed chronologically
+  const state = new Map<string, { qty: number; avgCostUsd: number }>();
+  const allSells: RealizedSell[] = [];
+
+  for (const tx of allTxns) {
+    const s = state.get(tx.ticker) ?? { qty: 0, avgCostUsd: 0 };
+    if (tx.type === "BUY") {
+      const newQty = s.qty + tx.quantity;
+      state.set(tx.ticker, {
+        qty: newQty,
+        avgCostUsd: newQty > 0 ? (s.qty * s.avgCostUsd + tx.quantity * tx.priceUsd) / newQty : 0,
+      });
+    } else {
+      const gain = tx.quantity * (tx.priceUsd - s.avgCostUsd);
+      allSells.push({
+        id: tx.id,
+        date: tx.date,
+        ticker: tx.ticker,
+        name: speciesMap.get(tx.ticker)?.name ?? tx.ticker,
+        quantity: tx.quantity,
+        avgCostUsd: s.avgCostUsd,
+        sellPriceUsd: tx.priceUsd,
+        realizedGainUsd: gain,
+        realizedGainPct: s.avgCostUsd > 0 ? ((tx.priceUsd - s.avgCostUsd) / s.avgCostUsd) * 100 : 0,
+      });
+      state.set(tx.ticker, { qty: Math.max(0, s.qty - tx.quantity), avgCostUsd: s.avgCostUsd });
+    }
+  }
+
+  // Summarize by ticker
+  const byTickerMap = new Map<string, TickerRealizedSummary>();
+  for (const sell of allSells) {
+    if (!byTickerMap.has(sell.ticker)) {
+      byTickerMap.set(sell.ticker, {
+        ticker: sell.ticker,
+        name: sell.name,
+        sells: [],
+        totalReceivedUsd: 0,
+        totalCostUsd: 0,
+        totalGainUsd: 0,
+        totalGainPct: 0,
+      });
+    }
+    const summary = byTickerMap.get(sell.ticker)!;
+    summary.sells.push(sell);
+    summary.totalReceivedUsd += sell.quantity * sell.sellPriceUsd;
+    summary.totalCostUsd += sell.quantity * sell.avgCostUsd;
+    summary.totalGainUsd += sell.realizedGainUsd;
+  }
+  for (const t of byTickerMap.values()) {
+    t.totalGainPct = t.totalCostUsd > 0 ? (t.totalGainUsd / t.totalCostUsd) * 100 : 0;
+  }
+
+  const byTicker = [...byTickerMap.values()].sort((a, b) => b.totalGainUsd - a.totalGainUsd);
+  const totalGainUsd = allSells.reduce((sum, s) => sum + s.realizedGainUsd, 0);
+
+  return { byTicker, allSells, totalGainUsd };
 }
 
 export interface TransactionRow {

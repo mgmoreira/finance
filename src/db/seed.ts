@@ -152,17 +152,15 @@ const rawTransactions: TxTuple[] = [
 ];
 
 const seedSnapshots = [
-  { yearMonth: "2025-05", portfolioValueUsd: 19189, depositsUsd: 6584, gainUsd: -194, gainPct: -1.01, sp500Value: null },
-  { yearMonth: "2025-06", portfolioValueUsd: 26598, depositsUsd: 8553, gainUsd: 1094, gainPct: 5.77, sp500Value: null },
-  { yearMonth: "2025-07", portfolioValueUsd: 40118, depositsUsd: 5552, gainUsd: 3520, gainPct: 9.27, sp500Value: null },
-  { yearMonth: "2025-08", portfolioValueUsd: 53279, depositsUsd: 10167, gainUsd: 4724, gainPct: 11.78, sp500Value: null },
-  { yearMonth: "2025-09", portfolioValueUsd: 58955, depositsUsd: 7546, gainUsd: 38, gainPct: 0.07, sp500Value: null },
-  { yearMonth: "2025-10", portfolioValueUsd: 60765, depositsUsd: 3342, gainUsd: -1392, gainPct: -2.29, sp500Value: null },
-  { yearMonth: "2025-11", portfolioValueUsd: 71625, depositsUsd: 2891, gainUsd: 6641, gainPct: 10.94, sp500Value: null },
-  { yearMonth: "2025-12", portfolioValueUsd: 72672, depositsUsd: 3797, gainUsd: 1047, gainPct: 1.46, sp500Value: null },
-  { yearMonth: "2026-01", portfolioValueUsd: 72553, depositsUsd: 0, gainUsd: -119, gainPct: -0.16, sp500Value: null },
-  { yearMonth: "2026-02", portfolioValueUsd: 72672, depositsUsd: 3138, gainUsd: 1047, gainPct: 1.46, sp500Value: null },
-  { yearMonth: "2026-03", portfolioValueUsd: 73610, depositsUsd: 1057, gainUsd: -119, gainPct: -0.16, sp500Value: null },
+  { yearMonth: "2025-07", portfolioValueUsd: 19189, depositsUsd: 6584, gainUsd: -194, gainPct: -1.01, sp500Value: null },
+  { yearMonth: "2025-08", portfolioValueUsd: 26598, depositsUsd: 8553, gainUsd: 1094, gainPct: 5.77, sp500Value: null },
+  { yearMonth: "2025-09", portfolioValueUsd: 40118, depositsUsd: 5552, gainUsd: 3520, gainPct: 9.27, sp500Value: null },
+  { yearMonth: "2025-10", portfolioValueUsd: 53279, depositsUsd: 10167, gainUsd: 4724, gainPct: 11.78, sp500Value: null },
+  { yearMonth: "2025-11", portfolioValueUsd: 58955, depositsUsd: 7546, gainUsd: 38, gainPct: 0.07, sp500Value: null },
+  { yearMonth: "2025-12", portfolioValueUsd: 60765, depositsUsd: 3342, gainUsd: -1392, gainPct: -2.29, sp500Value: null },
+  { yearMonth: "2026-01", portfolioValueUsd: 71625, depositsUsd: 2891, gainUsd: 6641, gainPct: 10.94, sp500Value: null },
+  { yearMonth: "2026-02", portfolioValueUsd: 72672, depositsUsd: 3797, gainUsd: 1047, gainPct: 1.46, sp500Value: null },
+  { yearMonth: "2026-03", portfolioValueUsd: 72553, depositsUsd: 0, gainUsd: -119, gainPct: -0.16, sp500Value: null },
 ];
 
 async function seed() {

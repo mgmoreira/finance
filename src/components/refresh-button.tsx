@@ -3,24 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+const mono: React.CSSProperties = {
+  fontFamily: "var(--font-jetbrains, monospace)",
+  fontSize: 10,
+};
+
 export function RefreshButton({ lastUpdated }: { lastUpdated: string | null }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Auto-refresh if stale (>5 min)
   useEffect(() => {
-    if (!lastUpdated) {
-      triggerRefresh();
-      return;
-    }
-
-    const lastUpdate = new Date(lastUpdated).getTime();
-    const now = Date.now();
-    const fiveMinutes = 5 * 60 * 1000;
-
-    if (now - lastUpdate > fiveMinutes) {
-      triggerRefresh();
-    }
+    if (!lastUpdated) { triggerRefresh(); return; }
+    const last = new Date(lastUpdated).getTime();
+    if (Date.now() - last > 5 * 60 * 1000) triggerRefresh();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function triggerRefresh() {
@@ -35,13 +30,44 @@ export function RefreshButton({ lastUpdated }: { lastUpdated: string | null }) {
     }
   }
 
+  async function handleExport() {
+    const res = await fetch("/api/export");
+    const text = await res.text();
+    await navigator.clipboard.writeText(text);
+    alert("Portfolio copiado al portapapeles");
+  }
+
   return (
-    <button
-      onClick={triggerRefresh}
-      disabled={loading}
-      className="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded disabled:opacity-50"
-    >
-      {loading ? "Actualizando..." : "Actualizar precios"}
-    </button>
+    <div style={{ display: "flex", gap: 6 }}>
+      <button
+        onClick={triggerRefresh}
+        disabled={loading}
+        style={{
+          ...mono,
+          color: loading ? "var(--text-mute)" : "var(--text-dim)",
+          background: "transparent",
+          border: "1px solid var(--border)",
+          padding: "4px 10px",
+          cursor: loading ? "default" : "pointer",
+          letterSpacing: 0.5,
+        }}
+      >
+        {loading ? "ACTUALIZANDO..." : "↻ ACTUALIZAR"}
+      </button>
+      <button
+        onClick={handleExport}
+        style={{
+          ...mono,
+          color: "var(--text-dim)",
+          background: "transparent",
+          border: "1px solid var(--border)",
+          padding: "4px 10px",
+          cursor: "pointer",
+          letterSpacing: 0.5,
+        }}
+      >
+        ↗ EXPORTAR
+      </button>
+    </div>
   );
 }

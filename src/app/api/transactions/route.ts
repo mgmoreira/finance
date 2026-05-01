@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transactions, species } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { transactions, species, cashMovements } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { fetchMep, fetchCedearHistory } from "@/lib/data912";
 import { fetchQuotes } from "@/lib/yahoo";
 
@@ -14,7 +14,8 @@ const usToBymaTicker: Record<string, string> = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { ticker, type, quantity, price, currency, date, exchangeRate: manualRate, newSpecies } = body;
+    const { ticker, type, quantity, price, currency: rawCurrency, date, exchangeRate: manualRate, newSpecies } = body;
+    const currency: "ARS" | "USD" = rawCurrency || "ARS";
 
     // Validate required fields (price is optional — auto-fetched if missing)
     if (!ticker || !type || !quantity || !date) {
@@ -40,7 +41,20 @@ export async function POST(request: NextRequest) {
         const mep = await fetchMep();
         exchangeRate = mep.last;
       } catch {
-        return NextResponse.json({ error: "Could not fetch MEP rate. Please enter manually." }, { status: 400 });
+        exchangeRate = 0;
+      }
+      // Holiday / market-closed fallback: read from most recent transaction's stored rate
+      if (!exchangeRate || exchangeRate <= 0) {
+        const recentTxns = await db
+          .select({ rate: transactions.exchangeRate })
+          .from(transactions)
+          .orderBy(desc(transactions.date))
+          .limit(20);
+        const validTxn = recentTxns.find((t) => (t.rate ?? 0) > 100);
+        exchangeRate = validTxn?.rate ?? 0;
+      }
+      if (!exchangeRate || exchangeRate <= 0) {
+        return NextResponse.json({ error: "No se pudo obtener el tipo de cambio MEP. Ingresalo manualmente." }, { status: 400 });
       }
     }
 
@@ -106,9 +120,72 @@ export async function POST(request: NextRequest) {
       date,
     }).returning();
 
+    // Update cash balance
+    if (type === "SELL") {
+      await db.insert(cashMovements).values({
+        type: "SELL",
+        amount: totalUsd,
+        description: `Venta ${quantity} ${ticker}`,
+        date,
+      });
+    } else {
+      // BUY: deduct from USD cash if there's cash available
+      const allCash = await db.select().from(cashMovements);
+      const cashBalance = allCash
+        .filter((m) => (m.currency ?? "USD") === "USD")
+        .reduce((sum, m) => sum + m.amount, 0);
+      if (cashBalance > 0) {
+        const deduction = Math.min(cashBalance, totalUsd);
+        await db.insert(cashMovements).values({
+          type: "ADJUSTMENT",
+          amount: -deduction,
+          description: `Compra ${quantity} ${ticker}`,
+          date,
+        });
+      }
+    }
+
     return NextResponse.json({ ok: true, transaction: result[0] });
   } catch (error) {
     console.error("Transaction creation failed:", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, ticker, type, quantity, priceArs, exchangeRate, stockPriceUsd, date } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    }
+
+    if (!exchangeRate || exchangeRate <= 0) {
+      return NextResponse.json({ error: "Tipo de cambio inválido." }, { status: 400 });
+    }
+    const priceUsd = priceArs / exchangeRate;
+    const totalArs = quantity * priceArs;
+    const totalUsd = quantity * priceUsd;
+
+    await db.update(transactions)
+      .set({
+        ticker,
+        type,
+        quantity,
+        priceArs,
+        priceUsd,
+        totalArs,
+        totalUsd,
+        exchangeRate,
+        stockPriceUsd: stockPriceUsd ?? null,
+        date,
+      })
+      .where(eq(transactions.id, id));
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Transaction update failed:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
@@ -119,6 +196,20 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    }
+
+    // Fetch transaction before deleting so we can reverse its cash movement
+    const txn = await db.select().from(transactions).where(eq(transactions.id, parseInt(id))).get();
+    if (txn) {
+      const expectedDescription = txn.type === "SELL"
+        ? `Venta ${txn.quantity} ${txn.ticker}`
+        : `Compra ${txn.quantity} ${txn.ticker}`;
+      await db.delete(cashMovements).where(
+        and(
+          eq(cashMovements.description, expectedDescription),
+          eq(cashMovements.date, txn.date),
+        )
+      );
     }
 
     await db.delete(transactions).where(eq(transactions.id, parseInt(id)));
