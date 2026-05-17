@@ -7,10 +7,6 @@
     {
       "path": "/api/crypto/snapshot",
       "schedule": "10 0 2 * *"
-    },
-    {
-      "path": "/api/alerts/check",
-      "schedule": "*/30 * * * *"
     }
   ]
 }
