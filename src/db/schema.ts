@@ -123,6 +123,16 @@ export const monthlySnapshots = sqliteTable("monthly_snapshots", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const priceAlerts = sqliteTable("price_alerts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ticker: text("ticker").notNull(),
+  condition: text("condition", { enum: ["above", "below"] }).notNull(),
+  targetPrice: real("target_price").notNull(),
+  active: integer("active").notNull().default(1),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  triggeredAt: text("triggered_at"),
+});
+
 export const cryptoMonthlySnapshots = sqliteTable("crypto_monthly_snapshots", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   yearMonth: text("year_month").notNull().unique(),

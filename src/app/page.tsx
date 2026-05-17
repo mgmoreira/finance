@@ -9,6 +9,7 @@ import { OperationsHistory } from "@/components/operations-history";
 import { RefreshButton } from "@/components/refresh-button";
 import { PortfolioCharts } from "@/components/portfolio-charts";
 import { RealizedPnl } from "@/components/realized-pnl";
+import { PriceAlerts } from "@/components/price-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,9 @@ export default async function Home() {
 
         {/* Realized P&L */}
         <RealizedPnl data={realizedPnl} />
+
+        {/* Price alerts */}
+        <PriceAlerts />
       </div>
     </main>
   );
