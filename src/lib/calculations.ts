@@ -32,6 +32,7 @@ export interface PortfolioSummary {
   totalInvested: number;
   totalGain: number;
   totalGainPct: number;
+  twrPct: number;
   sp500Price: number;
   sp500MonthStart: number;
   sp500MonthChangePct: number;
@@ -200,13 +201,26 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const lastSnapshot = monthlyStats[monthlyStats.length - 1];
   if (!lastSnapshot || lastSnapshot.yearMonth < currentYearMonth) {
-    // Net deposits this month = sum of BUYs - SELLs from transactions dated this month
-    const currentMonthDeposits = allTxns
-      .filter((tx) => tx.date.startsWith(currentYearMonth))
-      .reduce((sum, tx) => sum + (tx.type === "BUY" ? tx.totalUsd : -tx.totalUsd), 0);
+    // Modified Dietz: gain / (start_value + time_weighted_deposits)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const totalDays = Math.max(1, Math.round((now.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)));
+    const currentMonthTxns = allTxns.filter((tx) => tx.date.startsWith(currentYearMonth));
+
+    let currentMonthDeposits = 0;
+    let weightedDeposits = 0;
+    for (const tx of currentMonthTxns) {
+      const txDate = new Date(tx.date + "T12:00:00");
+      const daysElapsed = Math.round((txDate.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24));
+      const weight = (totalDays - daysElapsed) / totalDays;
+      const amount = tx.type === "BUY" ? tx.totalUsd : -tx.totalUsd;
+      currentMonthDeposits += amount;
+      weightedDeposits += amount * weight;
+    }
+
     const prevPortfolio = lastSnapshot?.portfolioValue ?? 0;
     const currentGainUsd = totalValue - prevPortfolio - currentMonthDeposits;
-    const currentGainPct = prevPortfolio > 0 ? (currentGainUsd / prevPortfolio) * 100 : 0;
+    const dietzBase = prevPortfolio + weightedDeposits;
+    const currentGainPct = dietzBase > 0 ? (currentGainUsd / dietzBase) * 100 : 0;
     monthlyStats.push({
       yearMonth: currentYearMonth,
       gainPct: currentGainPct,
@@ -221,6 +235,9 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     ? ((sp500Price - sp500MonthStart) / sp500MonthStart) * 100
     : 0;
 
+  // TWR: chain-link monthly returns (Modified Dietz per month → chained = approximate TWR)
+  const twrPct = (monthlyStats.reduce((acc, s) => acc * (1 + s.gainPct / 100), 1) - 1) * 100;
+
   // Last updated
   const lastUpdated = anyPriceEntry?.updatedAt ?? null;
 
@@ -229,6 +246,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     totalInvested,
     totalGain,
     totalGainPct,
+    twrPct,
     sp500Price,
     sp500MonthStart,
     sp500MonthChangePct,

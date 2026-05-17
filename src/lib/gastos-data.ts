@@ -174,36 +174,47 @@ export async function getBudgetDetail(yearMonth: string): Promise<BudgetDetail |
 
 export async function getAllMonthSummaries(): Promise<MonthSummary[]> {
   const budgets = await db.select().from(monthlyBudgets).orderBy(desc(monthlyBudgets.yearMonth));
+  if (budgets.length === 0) return [];
 
-  const summaries: MonthSummary[] = [];
-  for (const budget of budgets) {
-    const expenseRows = await db
-      .select({ amount: expenses.amount })
+  const budgetIds = budgets.map((b) => b.id);
+  const idList = sql.join(budgetIds.map((id) => sql`${id}`), sql`, `);
+
+  // Fetch all expenses and transfers in 2 queries instead of 2N
+  const [allExpenses, allTransfers] = await Promise.all([
+    db
+      .select({ budgetId: expenses.budgetId, amount: expenses.amount })
       .from(expenses)
-      .where(eq(expenses.budgetId, budget.id));
-
-    const transferRows = await db
-      .select({ amountArs: investmentTransfers.amountArs })
+      .where(sql`${expenses.budgetId} IN (${idList})`),
+    db
+      .select({ budgetId: investmentTransfers.budgetId, amountArs: investmentTransfers.amountArs })
       .from(investmentTransfers)
-      .where(eq(investmentTransfers.budgetId, budget.id));
+      .where(sql`${investmentTransfers.budgetId} IN (${idList})`),
+  ]);
 
-    const totalSpent = expenseRows.reduce((sum, e) => sum + (e.amount ?? 0), 0);
-    const totalInvested = transferRows.reduce((sum, t) => sum + t.amountArs, 0);
+  const spentByBudget = new Map<number, number>();
+  for (const e of allExpenses) {
+    spentByBudget.set(e.budgetId, (spentByBudget.get(e.budgetId) ?? 0) + (e.amount ?? 0));
+  }
+  const investedByBudget = new Map<number, number>();
+  for (const t of allTransfers) {
+    investedByBudget.set(t.budgetId, (investedByBudget.get(t.budgetId) ?? 0) + t.amountArs);
+  }
+
+  return budgets.map((budget) => {
     const totalSalary = budget.salary + (budget.mercadoPago ?? 0);
+    const totalSpent = spentByBudget.get(budget.id) ?? 0;
+    const totalInvested = investedByBudget.get(budget.id) ?? 0;
     const savings = totalSalary - totalSpent - totalInvested;
-    const savingsPct = totalSalary > 0 ? (savings / totalSalary) * 100 : 0;
-
-    summaries.push({
+    return {
       yearMonth: budget.yearMonth,
       salary: totalSalary,
       exchangeRateUsd: budget.exchangeRateUsd ?? null,
       totalSpent,
       totalInvested,
       savings,
-      savingsPct,
-    });
-  }
-  return summaries;
+      savingsPct: totalSalary > 0 ? (savings / totalSalary) * 100 : 0,
+    };
+  });
 }
 
 export async function getComparisonData(monthCount: number = 6) {

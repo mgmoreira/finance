@@ -21,12 +21,6 @@ interface MonthHeaderProps {
   onUpdated: () => void;
 }
 
-function formatMonthLabel(ym: string) {
-  const [year, month] = ym.split("-");
-  const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  return `${months[parseInt(month) - 1]} ${year}`;
-}
-
 function fmtUsd(v: number) {
   return `US$ ${Math.round(v).toLocaleString("es-AR")}`;
 }
@@ -36,82 +30,78 @@ export function MonthHeader({
   totalSpent, totalPending, totalInvested, totalInvestedUsd, remaining,
   onPrev, onNext, onUpdated,
 }: MonthHeaderProps) {
+  const [showEdit, setShowEdit] = useState(false);
+
+  const salaryUsd = exchangeRateUsd ? totalSalary / exchangeRateUsd : null;
   const spentPct = totalSalary > 0 ? (totalSpent / totalSalary) * 100 : 0;
   const investedPct = totalSalary > 0 ? (totalInvested / totalSalary) * 100 : 0;
   const remainingPct = totalSalary > 0 ? Math.max(0, (remaining / totalSalary) * 100) : 0;
-  const salaryUsd = exchangeRateUsd ? totalSalary / exchangeRateUsd : null;
+  const savingsRate = totalSalary > 0 ? totalInvested / totalSalary : 0;
 
-  const [showEdit, setShowEdit] = useState(false);
+  const salarySubtitle = [
+    mercadoPago && mercadoPago > 0 ? `Banco ${formatArs(salary)} + MP ${formatArs(mercadoPago)}` : null,
+    salaryUsd !== null ? fmtUsd(salaryUsd) : null,
+    exchangeRateUsd ? `USD $1 = ${formatArs(exchangeRateUsd)}` : null,
+  ].filter(Boolean).join(" · ");
+
+  const investedSubtitle = [
+    `Tasa de ahorro ${(savingsRate * 100).toFixed(1)}% · Meta 40%`,
+    totalInvestedUsd != null ? fmtUsd(totalInvestedUsd) : null,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="bg-gray-900 rounded-lg p-5">
-      {/* Month navigation */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={onPrev} className="text-gray-400 hover:text-white px-3 py-1 rounded hover:bg-gray-800 text-lg">&lt;</button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">{formatMonthLabel(yearMonth)}</h1>
-          <button
-            onClick={() => setShowEdit(true)}
-            className="text-xs text-gray-600 hover:text-blue-400"
-          >
-            Editar
-          </button>
+    <>
+      <div className="t1-stat-grid">
+        {/* SUELDO */}
+        <div className="t1-stat">
+          <div className="t1-stat__l">SUELDO</div>
+          <div className="t1-stat__v" data-money>{formatArs(totalSalary)}</div>
+          <div className="t1-stat__s">{salarySubtitle || "—"}</div>
+          <div className="t1-stat__bar"><span style={{ width: "100%" }} /></div>
         </div>
-        <button onClick={onNext} className="text-gray-400 hover:text-white px-3 py-1 rounded hover:bg-gray-800 text-lg">&gt;</button>
-      </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-        <div>
-          <span className="text-xs text-gray-400">SUELDO</span>
-          <p className="text-lg font-semibold" data-money>{formatArs(totalSalary)}</p>
-          {mercadoPago != null && mercadoPago > 0 && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              Banco {formatArs(salary)} + MP {formatArs(mercadoPago)}
-            </p>
-          )}
-          {salaryUsd !== null && (
-            <p className="text-xs text-yellow-400 mt-0.5">{fmtUsd(salaryUsd)}</p>
-          )}
+        {/* GASTADO */}
+        <div className="t1-stat neg">
+          <div className="t1-stat__l">GASTADO</div>
+          <div className="t1-stat__v" data-money>{formatArs(totalSpent)}</div>
+          <div className="t1-stat__s">{spentPct.toFixed(1)}% del sueldo{totalPending > 0 ? ` · ${totalPending} pendiente${totalPending !== 1 ? "s" : ""}` : ""}</div>
+          <div className="t1-stat__bar"><span style={{ width: `${Math.min(spentPct, 100)}%` }} /></div>
         </div>
-        <div>
-          <span className="text-xs text-gray-400">GASTADO</span>
-          <p className="text-lg font-semibold text-red-400" data-money>{formatArs(totalSpent)}</p>
+
+        {/* INVERTIDO */}
+        <div className="t1-stat pos">
+          <div className="t1-stat__l">INVERTIDO</div>
+          <div className="t1-stat__v" data-money>{formatArs(totalInvested)}</div>
+          <div className="t1-stat__s">{investedSubtitle || "—"}</div>
+          <div className="t1-stat__bar">
+            <span style={{ width: `${Math.min((savingsRate / 0.4) * 100, 100)}%` }} />
+          </div>
         </div>
-        <div>
-          <span className="text-xs text-gray-400">INVERTIDO</span>
-          <p className="text-lg font-semibold text-green-400" data-money>{formatArs(totalInvested)}</p>
-          {totalInvestedUsd !== null && (
-            <p className="text-xs text-yellow-400 mt-0.5">{fmtUsd(totalInvestedUsd)}</p>
-          )}
-        </div>
-        <div>
-          <span className="text-xs text-gray-400">DISPONIBLE</span>
-          <p className={`text-lg font-semibold ${remaining >= 0 ? "text-blue-400" : "text-red-400"}`} data-money>
-            {formatArs(remaining)}
-          </p>
-        </div>
-        <div>
-          <span className="text-xs text-gray-400">PENDIENTES</span>
-          <p className="text-lg font-semibold text-yellow-400">{totalPending}</p>
+
+        {/* POR ASIGNAR */}
+        <div className={`t1-stat${remaining > 0 ? " warn" : remaining < 0 ? " neg" : ""}`}>
+          <div className="t1-stat__l">POR ASIGNAR</div>
+          <div className="t1-stat__v" data-money>{formatArs(remaining)}</div>
+          <div className="t1-stat__s">
+            {remainingPct.toFixed(1)}% del sueldo
+            {exchangeRateUsd && remaining > 0 ? ` · ${fmtUsd(remaining / exchangeRateUsd)}` : ""}
+          </div>
+          <div className="t1-stat__bar">
+            <span style={{ width: `${Math.min(remainingPct, 100)}%` }} />
+          </div>
         </div>
       </div>
 
-      {/* Exchange rate indicator */}
-      {exchangeRateUsd && (
-        <p className="text-xs text-gray-600 mb-3">USD $1 = {formatArs(exchangeRateUsd)}</p>
-      )}
-
-      {/* Progress bar */}
-      <div className="w-full bg-gray-800 rounded-full h-3 flex overflow-hidden">
-        <div className="bg-red-500 h-3 transition-all" style={{ width: `${Math.min(spentPct, 100)}%` }} title={`Gastado: ${spentPct.toFixed(1)}%`} />
-        <div className="bg-green-500 h-3 transition-all" style={{ width: `${Math.min(investedPct, 100 - spentPct)}%` }} title={`Invertido: ${investedPct.toFixed(1)}%`} />
-        <div className="bg-blue-500/30 h-3 transition-all" style={{ width: `${Math.min(remainingPct, 100 - spentPct - investedPct)}%` }} title={`Disponible: ${remainingPct.toFixed(1)}%`} />
-      </div>
-      <div className="flex gap-4 mt-1.5 text-xs text-gray-500">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Gastos</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Inversión</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500/50 inline-block" /> Disponible</span>
+      {/* Navigation + edit */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+        <button className="t1-btn" onClick={onPrev} style={{ padding: "3px 10px" }}>← ANTERIOR</button>
+        <button
+          style={{ fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.08em", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)" }}
+          onClick={() => setShowEdit(true)}
+        >
+          EDITAR MES
+        </button>
+        <button className="t1-btn" onClick={onNext} style={{ padding: "3px 10px" }}>SIGUIENTE →</button>
       </div>
 
       {showEdit && (
@@ -125,6 +115,6 @@ export function MonthHeader({
           onSaved={onUpdated}
         />
       )}
-    </div>
+    </>
   );
 }

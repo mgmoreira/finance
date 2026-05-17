@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatArs, formatDate } from "@/lib/format";
 import type { ExpenseRow, CategoryInfo } from "@/lib/gastos-data";
 import { MoneyInput } from "./money-input";
@@ -10,9 +10,10 @@ interface ExpenseListProps {
   categories: CategoryInfo[];
   budgetId: number;
   onMutate?: () => void;
+  triggerAdd?: number;
 }
 
-export function ExpenseList({ expenses, categories, budgetId, onMutate }: ExpenseListProps) {
+export function ExpenseList({ expenses, categories, budgetId, onMutate, triggerAdd = 0 }: ExpenseListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editDate, setEditDate] = useState("");
@@ -25,8 +26,15 @@ export function ExpenseList({ expenses, categories, budgetId, onMutate }: Expens
   const [newDate, setNewDate] = useState(new Date().toISOString().slice(0, 10));
   const [newNotes, setNewNotes] = useState("");
 
+  useEffect(() => {
+    if (triggerAdd > 0) setShowAdd(true);
+  }, [triggerAdd]);
+
   const pending = expenses.filter((e) => e.amount === null);
   const completed = expenses.filter((e) => e.amount !== null);
+  const total = completed.reduce((s, e) => s + (e.amount ?? 0), 0);
+  const fixed = completed.filter((e) => e.templateId).reduce((s, e) => s + (e.amount ?? 0), 0);
+  const variable = total - fixed;
 
   function startEdit(exp: ExpenseRow) {
     setEditingId(exp.id);
@@ -49,10 +57,7 @@ export function ExpenseList({ expenses, categories, budgetId, onMutate }: Expens
           notes: editNotes || null,
         }),
       });
-      if (res.ok) {
-        setEditingId(null);
-        onMutate?.();
-      }
+      if (res.ok) { setEditingId(null); onMutate?.(); }
     } finally {
       setSaving(false);
     }
@@ -94,136 +99,43 @@ export function ExpenseList({ expenses, categories, budgetId, onMutate }: Expens
     }
   }
 
-  function renderRow(exp: ExpenseRow) {
-    const isPending = exp.amount === null;
-    const isEditing = editingId === exp.id;
-
-    if (isEditing) {
-      return (
-        <tr key={exp.id} className="border-b border-gray-800/50 bg-gray-800/40">
-          <td className="py-2 px-2 font-medium">{exp.name}</td>
-          <td className="py-2 px-1">
-            {exp.categoryName && (
-              <span
-                className="text-xs px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: (exp.categoryColor ?? "#6b7280") + "20", color: exp.categoryColor ?? undefined }}
-              >
-                {exp.categoryName}
-              </span>
-            )}
-          </td>
-          <td className="py-2 px-1">
-            <MoneyInput
-              value={editAmount}
-              onChange={setEditAmount}
-              placeholder="Monto"
-              className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm w-32 text-right"
-              autoFocus
-            />
-          </td>
-          <td className="py-2 px-1">
-            <input
-              type="date"
-              value={editDate}
-              onChange={(e) => setEditDate(e.target.value)}
-              className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm w-36"
-            />
-          </td>
-          <td className="py-2 px-1">
-            <input
-              type="text"
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              placeholder="Notas"
-              className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm w-32"
-            />
-          </td>
-          <td className="py-2 px-1 whitespace-nowrap">
-            <button onClick={saveEdit} disabled={saving} className="text-green-400 hover:text-green-300 text-xs font-medium mr-2">
-              {saving ? "..." : "Guardar"}
-            </button>
-            <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-300 text-xs">
-              Cancelar
-            </button>
-          </td>
-        </tr>
-      );
-    }
-
-    return (
-      <tr
-        key={exp.id}
-        className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
-        onClick={() => startEdit(exp)}
-        title="Click para editar"
-      >
-        <td className="py-2.5 px-2">
-          <span className="font-medium">{exp.name}</span>
-          {exp.templateId && <span className="text-gray-600 text-xs ml-1.5">fijo</span>}
-        </td>
-        <td className="py-2.5 px-2">
-          {exp.categoryName && (
-            <span
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: (exp.categoryColor ?? "#6b7280") + "20", color: exp.categoryColor ?? "#6b7280" }}
-            >
-              {exp.categoryName}
+  return (
+    <div className="t1-pn">
+      <div className="t1-pn__h">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <b>MOVIMIENTOS</b>
+          <span>
+            {completed.length} cargados{" "}
+            {pending.length > 0 && <span style={{ color: "var(--accent)" }}>· {pending.length} pendientes</span>}
+          </span>
+          {total > 0 && (
+            <span>
+              fijos {formatArs(fixed)} · variables {formatArs(variable)}
             </span>
           )}
-        </td>
-        <td className="py-2.5 px-2 text-right" data-money>
-          {isPending ? (
-            <span className="text-yellow-400 text-xs font-medium bg-yellow-400/10 px-2 py-0.5 rounded">Cargar monto</span>
-          ) : (
-            formatArs(exp.amount!)
-          )}
-        </td>
-        <td className="py-2.5 px-2 text-gray-400">
-          {exp.date ? formatDate(exp.date) : "—"}
-        </td>
-        <td className="py-2.5 px-2 text-gray-500 text-xs">{exp.notes ?? ""}</td>
-        <td className="py-2.5 px-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); handleDelete(exp.id); }}
-            className="text-gray-500 hover:text-red-400 text-xs"
-            title="Eliminar"
-          >
-            X
-          </button>
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <div className="bg-gray-900 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-semibold text-gray-400">GASTOS DEL MES</h3>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-sm px-4 py-1.5 rounded font-medium"
-        >
-          + Agregar gasto
+        </div>
+        <button className="t1-btn" style={{ padding: "3px 10px" }} onClick={() => setShowAdd(true)}>
+          + AGREGAR
         </button>
       </div>
-      <p className="text-xs text-gray-500 mb-3">Click en cualquier fila para cargar o editar el monto</p>
 
       {/* Add form */}
       {showAdd && (
-        <div className="mb-3 p-3 bg-gray-800/50 rounded border border-gray-700 space-y-2">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div style={{ padding: 12, borderBottom: "1px solid var(--border-strong)", background: "var(--panel-alt)", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, flexWrap: "wrap" }}>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Nombre del gasto"
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm"
+              className="t1-inp"
               autoFocus
+              onKeyDown={(e) => e.key === "Enter" && addExpense()}
             />
             <select
               value={newCategoryId}
               onChange={(e) => setNewCategoryId(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm"
+              className="t1-inp"
             >
               <option value="">Sin categoría</option>
               {categories.map((c) => (
@@ -234,82 +146,186 @@ export function ExpenseList({ expenses, categories, budgetId, onMutate }: Expens
               value={newAmount}
               onChange={setNewAmount}
               placeholder="Monto"
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm"
+              className="t1-inp"
             />
             <input
               type="date"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm"
+              className="t1-inp"
             />
           </div>
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input
               type="text"
               value={newNotes}
               onChange={(e) => setNewNotes(e.target.value)}
               placeholder="Notas (opcional)"
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm"
+              className="t1-inp"
+              style={{ flex: 1 }}
             />
             <button
+              className="t1-btn accent"
               onClick={addExpense}
               disabled={saving || !newName.trim()}
-              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-sm px-4 py-1.5 rounded font-medium"
             >
-              Agregar
+              {saving ? "..." : "AGREGAR"}
             </button>
-            <button
-              onClick={() => setShowAdd(false)}
-              className="text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5"
-            >
-              Cancelar
-            </button>
+            <button className="t1-btn" onClick={() => setShowAdd(false)}>CANCELAR</button>
           </div>
         </div>
       )}
 
-      {/* Pending expenses first */}
-      {pending.length > 0 && (
-        <>
-          <p className="text-xs text-yellow-400/70 font-medium mb-1 mt-2">PENDIENTES ({pending.length})</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody>
-                {pending.map((exp) => renderRow(exp))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      <div style={{ overflowX: "auto" }}>
+        <table className="t1-tbl">
+          <thead>
+            <tr>
+              <th style={{ width: 80 }}>FECHA</th>
+              <th>CONCEPTO</th>
+              <th>CATEGORÍA</th>
+              <th style={{ width: 60 }}>EST</th>
+              <th className="r">MONTO</th>
+              <th style={{ width: 36 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Pending rows first */}
+            {pending.map((exp) => (
+              <tr
+                key={exp.id}
+                className={`t1-pend${exp.templateId ? " t1-fix" : " t1-var"}`}
+                style={{ cursor: "pointer" }}
+                onClick={() => startEdit(exp)}
+              >
+                <td style={{ color: "var(--text-dim)", fontSize: 10 }}>—</td>
+                <td>
+                  {exp.name}
+                  {exp.templateId && <span style={{ color: "var(--text-mute)", marginLeft: 6, fontSize: 9 }}>↻</span>}
+                </td>
+                <td>
+                  {exp.categoryName && (
+                    <span style={{ color: exp.categoryColor ?? "var(--text-dim)", fontSize: 10 }}>
+                      ▪ {exp.categoryName}
+                    </span>
+                  )}
+                </td>
+                <td><span className="pill pend">PEND</span></td>
+                <td className="r" style={{ color: "var(--accent)", fontSize: 10 }}>CARGAR</td>
+                <td />
+              </tr>
+            ))}
 
-      {/* Completed expenses */}
-      {completed.length > 0 && (
-        <>
-          <p className="text-xs text-gray-500 font-medium mb-1 mt-4">CARGADOS ({completed.length})</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-400 text-left border-b border-gray-800">
-                  <th className="py-2 px-2">Nombre</th>
-                  <th className="py-2 px-2">Categoría</th>
-                  <th className="py-2 px-2 text-right">Monto</th>
-                  <th className="py-2 px-2">Fecha</th>
-                  <th className="py-2 px-2">Notas</th>
-                  <th className="py-2 px-2"></th>
+            {/* Completed rows */}
+            {completed.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")).map((exp) => {
+              const isEditing = editingId === exp.id;
+              if (isEditing) {
+                return (
+                  <tr key={exp.id} className="t1-edit">
+                    <td>
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="t1-inp"
+                        style={{ width: 110, fontSize: 10 }}
+                      />
+                    </td>
+                    <td style={{ color: "var(--text)", fontWeight: 600 }}>{exp.name}</td>
+                    <td>
+                      {exp.categoryName && (
+                        <span style={{ color: exp.categoryColor ?? "var(--text-dim)", fontSize: 10 }}>
+                          ▪ {exp.categoryName}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        placeholder="Notas"
+                        className="t1-inp"
+                        style={{ width: 100, fontSize: 10 }}
+                      />
+                    </td>
+                    <td className="r">
+                      <MoneyInput
+                        value={editAmount}
+                        onChange={setEditAmount}
+                        placeholder="Monto"
+                        className="t1-inp"
+                        style={{ width: 110, textAlign: "right" }}
+                        autoFocus
+                      />
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button className="t1-btn accent" style={{ padding: "2px 7px", fontSize: 9 }} onClick={saveEdit} disabled={saving}>
+                          {saving ? "..." : "OK"}
+                        </button>
+                        <button className="t1-btn" style={{ padding: "2px 7px", fontSize: 9 }} onClick={() => setEditingId(null)}>
+                          ✕
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+              return (
+                <tr
+                  key={exp.id}
+                  className={exp.templateId ? "t1-fix" : "t1-var"}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => startEdit(exp)}
+                  title="Click para editar"
+                >
+                  <td style={{ color: "var(--text-dim)", fontSize: 10 }}>
+                    {exp.date ? formatDate(exp.date) : "—"}
+                  </td>
+                  <td>
+                    {exp.name}
+                    {exp.templateId && <span style={{ color: "var(--text-mute)", marginLeft: 6, fontSize: 9 }}>↻</span>}
+                    {exp.notes && <span style={{ color: "var(--text-mute)", marginLeft: 6, fontSize: 9 }}>({exp.notes})</span>}
+                  </td>
+                  <td>
+                    {exp.categoryName && (
+                      <span style={{ color: exp.categoryColor ?? "var(--text-dim)", fontSize: 10 }}>
+                        ▪ {exp.categoryName}
+                      </span>
+                    )}
+                  </td>
+                  <td><span className="pill paid">OK</span></td>
+                  <td className="r" data-money>{formatArs(exp.amount!)}</td>
+                  <td>
+                    <button
+                      className="t1-btn danger"
+                      style={{ padding: "2px 7px", fontSize: 9, border: "none" }}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(exp.id); }}
+                      title="Eliminar"
+                    >
+                      ✕
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {completed.map((exp) => renderRow(exp))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+              );
+            })}
+          </tbody>
+          {completed.length > 0 && (
+            <tfoot>
+              <tr>
+                <td colSpan={4}>TOTAL CARGADO</td>
+                <td className="r" data-money>{formatArs(total)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
 
       {expenses.length === 0 && !showAdd && (
-        <p className="py-6 text-center text-gray-500 text-sm">
-          No hay gastos. Usá el botón &quot;+ Agregar gasto&quot; para cargar uno.
-        </p>
+        <div style={{ padding: "28px 0", textAlign: "center", color: "var(--text-mute)", fontSize: 10, letterSpacing: "0.1em" }}>
+          SIN MOVIMIENTOS · USÁ + AGREGAR PARA CARGAR UN GASTO
+        </div>
       )}
     </div>
   );

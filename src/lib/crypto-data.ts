@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { cryptoHoldings, cryptoPriceCache } from "@/db/schema";
+import { cryptoHoldings, cryptoPriceCache, cryptoMonthlySnapshots } from "@/db/schema";
+import { desc } from "drizzle-orm";
 
 export interface CryptoPosition {
   ticker: string;
@@ -7,7 +8,7 @@ export interface CryptoPosition {
   yahooTicker: string | null;
   quantity: number;
   entryPriceUsd: number;
-  invested: number; // quantity * entryPriceUsd
+  invested: number;
   entryDate: string;
   priceUsd: number | null;
   currentValue: number | null;
@@ -24,6 +25,16 @@ export interface CryptoSummary {
   totalPnlPct: number;
   positions: CryptoPosition[];
   lastUpdated: string | null;
+}
+
+export interface CryptoMonthlySnapshot {
+  yearMonth: string;
+  totalValueUsd: number;
+  totalInvestedUsd: number;
+  changeUsd: number;
+  changePct: number;
+  totalPnl: number;
+  totalPnlPct: number;
 }
 
 export async function getCryptoSummary(): Promise<CryptoSummary> {
@@ -77,4 +88,28 @@ export async function getCryptoSummary(): Promise<CryptoSummary> {
     : null;
 
   return { totalValue, totalInvested, totalPnl, totalPnlPct, positions, lastUpdated };
+}
+
+export async function getCryptoMonthlySnapshots(): Promise<CryptoMonthlySnapshot[]> {
+  const rows = await db
+    .select()
+    .from(cryptoMonthlySnapshots)
+    .orderBy(desc(cryptoMonthlySnapshots.yearMonth));
+
+  return rows.map((row, i) => {
+    const prev = rows[i + 1];
+    const changeUsd = prev ? row.totalValueUsd - prev.totalValueUsd : 0;
+    const changePct = prev && prev.totalValueUsd > 0 ? (changeUsd / prev.totalValueUsd) * 100 : 0;
+    const totalPnl = row.totalValueUsd - row.totalInvestedUsd;
+    const totalPnlPct = row.totalInvestedUsd > 0 ? (totalPnl / row.totalInvestedUsd) * 100 : 0;
+    return {
+      yearMonth: row.yearMonth,
+      totalValueUsd: row.totalValueUsd,
+      totalInvestedUsd: row.totalInvestedUsd,
+      changeUsd,
+      changePct,
+      totalPnl,
+      totalPnlPct,
+    };
+  });
 }

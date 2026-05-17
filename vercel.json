@@ -3,6 +3,10 @@
     {
       "path": "/api/close-month",
       "schedule": "5 0 1 * *"
+    },
+    {
+      "path": "/api/crypto/snapshot",
+      "schedule": "10 0 2 * *"
     }
   ]
 }

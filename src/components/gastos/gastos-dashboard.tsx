@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { BudgetDetail, CategoryInfo, TemplateInfo, MonthSummary } from "@/lib/gastos-data";
 import { MonthHeader } from "./month-header";
 import { ExpenseList } from "./expense-list";
@@ -28,11 +28,17 @@ interface GastosDashboardProps {
   comparison: ComparisonData;
 }
 
-const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const MONTH_SHORT = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
 
 function monthLabel(ym: string) {
   const [year, month] = ym.split("-");
   return `${MONTH_NAMES[parseInt(month) - 1]} ${year}`;
+}
+
+function monthShort(ym: string) {
+  const [year, month] = ym.split("-");
+  return `${MONTH_SHORT[parseInt(month) - 1]} ${year.slice(2)}`;
 }
 
 function nextMonth(ym: string) {
@@ -44,6 +50,97 @@ function prevMonth(ym: string) {
   const [y, m] = ym.split("-").map(Number);
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }
+
+const T1_CSS = `
+.t1-period { display: flex; align-items: stretch; border-bottom: 1px solid var(--border-strong); background: var(--panel); overflow-x: auto; scrollbar-width: none; }
+.t1-period::-webkit-scrollbar { display: none; }
+.t1-period__lbl { color: var(--text-dim); font-size: 10px; letter-spacing: 0.1em; align-self: center; padding: 10px 14px; border-right: 1px solid var(--border-strong); flex-shrink: 0; }
+.t1-mp { flex: 0 0 auto; padding: 8px 12px; cursor: pointer; border-right: 1px solid var(--border-strong); display: flex; flex-direction: column; gap: 3px; min-width: 82px; transition: background .12s; }
+.t1-mp:hover { background: var(--panel-alt); }
+.t1-mp.on { background: #1a1a12; box-shadow: inset 0 -2px 0 var(--accent); }
+.t1-mp__n { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em; }
+.t1-mp.on .t1-mp__n { color: var(--accent); }
+.t1-mp__v { font-size: 10px; color: var(--text); }
+.t1-mp__b { height: 2px; background: var(--border-strong); position: relative; overflow: hidden; margin-top: 2px; }
+.t1-mp__b > span { position: absolute; inset: 0 auto 0 0; background: var(--up); }
+.t1-mp.warn .t1-mp__b > span { background: var(--accent); }
+
+.t1-tabs { display: flex; padding: 0 14px; border-bottom: 1px solid var(--border-strong); background: var(--panel); }
+.t1-tab { padding: 8px 14px; background: transparent; border: 0; color: var(--text-dim); font-family: var(--font-mono); letter-spacing: 0.08em; font-size: 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .12s; }
+.t1-tab:hover { color: var(--text); }
+.t1-tab.on { color: var(--text); border-bottom-color: var(--accent); }
+
+.t1-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border-strong); }
+@media (max-width: 680px) { .t1-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.t1-stat { padding: 10px 14px 12px; border-right: 1px solid var(--border-strong); background: var(--panel); display: flex; flex-direction: column; gap: 4px; }
+.t1-stat:last-child { border-right: 0; }
+.t1-stat__l { font-size: 9px; color: var(--text-dim); letter-spacing: 0.12em; display: flex; align-items: center; gap: 6px; }
+.t1-stat__l::before { content: ''; width: 5px; height: 5px; background: var(--text-dim); flex-shrink: 0; }
+.t1-stat.pos .t1-stat__l::before { background: var(--up); }
+.t1-stat.neg .t1-stat__l::before { background: var(--down); }
+.t1-stat.warn .t1-stat__l::before { background: var(--accent); }
+.t1-stat.neutral .t1-stat__l::before { background: var(--blue); }
+.t1-stat__v { font-size: 17px; font-weight: 600; color: #e8dfb8; letter-spacing: -0.01em; }
+.t1-stat__s { font-size: 9px; color: var(--text-dim); line-height: 1.4; }
+.t1-stat__bar { height: 2px; background: var(--border-strong); margin-top: auto; position: relative; overflow: hidden; }
+.t1-stat__bar > span { position: absolute; inset: 0 auto 0 0; }
+.t1-stat .t1-stat__bar > span { background: var(--text-dim); }
+.t1-stat.pos .t1-stat__bar > span { background: var(--up); }
+.t1-stat.neg .t1-stat__bar > span { background: var(--down); }
+.t1-stat.warn .t1-stat__bar > span { background: var(--accent); }
+.t1-stat.neutral .t1-stat__bar > span { background: var(--blue); }
+
+.t1-pn { border: 1px solid var(--border-strong); background: var(--bg); }
+.t1-pn__h { padding: 8px 12px; border-bottom: 1px solid var(--border-strong); display: flex; justify-content: space-between; align-items: center; background: var(--panel); font-size: 10px; letter-spacing: 0.08em; color: var(--text-dim); gap: 10px; flex-wrap: wrap; }
+.t1-pn__h b { color: var(--text); font-weight: 700; }
+.t1-pn__h select { background: var(--panel-alt); border: 1px solid var(--border-strong); color: var(--text); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; padding: 3px 8px; }
+
+.t1-bar2 { display: flex; height: 24px; }
+.t1-bar2 > span { transition: filter .12s; }
+.t1-bar2 > span:hover { filter: brightness(1.3); }
+.t1-bar2-leg { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 10px 12px 12px; font-size: 10px; color: var(--text-dim); }
+.t1-bar2-leg__i { display: flex; align-items: center; gap: 5px; }
+.t1-bar2-leg b { color: var(--text); font-weight: 500; }
+
+.t1-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--font-mono); }
+.t1-tbl th { text-align: left; padding: 6px 10px; font-weight: 600; font-size: 9px; letter-spacing: 0.1em; color: var(--text-dim); background: var(--panel-alt); border-bottom: 1px solid var(--border-strong); position: sticky; top: 0; }
+.t1-tbl th.r, .t1-tbl td.r { text-align: right; }
+.t1-tbl td { padding: 0 10px; height: 27px; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+.t1-tbl tr:hover td { background: var(--panel); color: var(--text); }
+.t1-tbl tfoot td { background: var(--panel); color: var(--text); font-weight: 600; padding: 8px 10px; border-top: 1px solid var(--accent); }
+.t1-tbl .t1-fix td:first-child { border-left: 2px solid var(--text-mute); padding-left: 8px; }
+.t1-tbl .t1-var td:first-child { border-left: 2px solid var(--accent); padding-left: 8px; }
+.t1-tbl .t1-pend td { color: var(--accent); }
+.t1-tbl .t1-pend td:first-child { border-left: 2px solid var(--accent); padding-left: 8px; }
+.t1-tbl .t1-edit td { background: var(--panel-alt) !important; }
+.pill { font-size: 9px; padding: 1px 5px; letter-spacing: 0.04em; font-family: var(--font-mono); }
+.pill.paid { background: rgba(43,182,115,0.12); color: var(--up); }
+.pill.pend { background: rgba(232,163,23,0.12); color: var(--accent); }
+
+.t1-cat__r { padding: 8px 12px; display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 11px; border-bottom: 1px solid var(--border); position: relative; }
+.t1-cat__r:last-child { border-bottom: 0; }
+.t1-cat__n { color: var(--text); }
+.t1-cat__pc { color: var(--text-dim); font-size: 10px; margin-left: 4px; }
+.t1-cat__a { color: #e8dfb8; font-weight: 600; font-size: 11px; }
+.t1-cat__b { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; opacity: 0.25; }
+
+.t1-btn { background: var(--panel); border: 1px solid var(--border-strong); color: var(--text); padding: 5px 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; cursor: pointer; transition: background .12s; }
+.t1-btn:hover { background: var(--panel-alt); }
+.t1-btn.accent { background: var(--accent); border-color: var(--accent); color: #0a0e0d; font-weight: 600; }
+.t1-btn.accent:hover { filter: brightness(1.1); }
+.t1-btn.success { background: var(--up); border-color: var(--up); color: #0a0e0d; font-weight: 600; }
+.t1-btn.success:hover { filter: brightness(1.1); }
+.t1-btn.danger { color: var(--down); }
+.t1-btn.danger:hover { background: rgba(231,76,60,0.1); border-color: var(--down); }
+.t1-inp { background: var(--panel-alt); border: 1px solid var(--border-strong); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; outline: none; }
+.t1-inp:focus { border-color: var(--accent); }
+
+.t1-section-hdr { font-size: 9px; color: var(--text-dim); letter-spacing: 0.14em; padding: 8px 0 4px; border-top: 1px solid var(--border); }
+
+.t1-transfer-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--border); font-size: 11px; }
+.t1-transfer-row:hover { background: var(--panel); }
+.t1-transfer-row:last-child { border-bottom: 0; }
+`;
 
 export function GastosDashboard({
   initialBudget,
@@ -57,11 +154,23 @@ export function GastosDashboard({
   const [budget, setBudget] = useState<BudgetDetail | null>(initialBudget);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showNewMonth, setShowNewMonth] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<TransferRow | null>(null);
+  const [activeTab, setActiveTab] = useState<"mes" | "historico" | "recurrentes">("historico");
+  const [triggerAdd, setTriggerAdd] = useState(0);
 
-  const isFirstTime = allMonths.length === 0 && !budget;
+  const periodRef = useRef<HTMLDivElement>(null);
+  const activeBtnRef = useRef<HTMLDivElement>(null);
+
+  const sortedMonths = useMemo(
+    () => [...allMonths].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth)),
+    [allMonths]
+  );
+
+  useEffect(() => {
+    activeBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [yearMonth]);
+
   const hasTemplates = templates.filter((t) => t.isActive).length > 0;
 
   const fetchBudget = useCallback(async (ym: string) => {
@@ -90,6 +199,7 @@ export function GastosDashboard({
   async function navigateMonth(ym: string) {
     setLoading(true);
     setYearMonth(ym);
+    setActiveTab("mes");
     try {
       const result = await fetchBudget(ym);
       setBudget(result);
@@ -106,172 +216,220 @@ export function GastosDashboard({
   }, [yearMonth, fetchBudget]);
 
   return (
-    <div className="space-y-6">
-      {/* First-time onboarding */}
-      {isFirstTime && (
-        <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-5">
-          <h2 className="text-lg font-semibold mb-2">Bienvenido a Gastos</h2>
-          <div className="text-sm text-gray-300 space-y-2">
-            <p>Para arrancar, seguí estos pasos:</p>
-            <ol className="list-decimal list-inside space-y-1 text-gray-400">
-              <li className={hasTemplates ? "text-green-400 line-through" : "text-white font-medium"}>
-                Creá tus gastos fijos (templates) — ej: Telecentro, Edenor, Netflix
-              </li>
-              <li className="text-white font-medium">
-                Creá el mes actual con tu sueldo neto
-              </li>
-              <li className="text-gray-400">
-                Completá los montos a medida que te lleguen
-              </li>
-            </ol>
-          </div>
-        </div>
-      )}
+    <div style={{ fontFamily: "var(--font-mono)" }}>
+      <style>{T1_CSS}</style>
 
-      {/* Template manager — always visible on first time, otherwise toggle */}
-      {(isFirstTime || showTemplates) && (
-        <TemplateManager templates={templates} categories={categories} allMonths={allMonths} />
-      )}
-
-      {/* Month content */}
-      {budget ? (
-        <>
-          <MonthHeader
-            budgetId={budget.id}
-            yearMonth={yearMonth}
-            salary={budget.salary}
-            mercadoPago={budget.mercadoPago}
-            totalSalary={budget.totalSalary}
-            exchangeRateUsd={budget.exchangeRateUsd}
-            totalSpent={budget.totalSpent}
-            totalPending={budget.totalPending}
-            totalInvested={budget.totalInvested}
-            totalInvestedUsd={budget.totalInvestedUsd}
-            remaining={budget.remaining}
-            onPrev={() => navigateMonth(prevMonth(yearMonth))}
-            onNext={() => navigateMonth(nextMonth(yearMonth))}
-            onUpdated={refreshBudget}
-          />
-
-          {/* Current month breakdown chart */}
-          {budget.expenses.some((e) => e.amount !== null) && (
-            <MonthBreakdownChart
-              salary={budget.salary}
-              expenses={budget.expenses}
-              totalInvested={budget.totalInvested}
-            />
-          )}
-
-          {/* Action buttons */}
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setShowTransfer(true)}
-              className="bg-green-600 hover:bg-green-500 text-sm px-4 py-2 rounded font-medium"
+      {/* ── Period strip ── */}
+      <div className="t1-period" ref={periodRef}>
+        <span className="t1-period__lbl">PERÍODOS</span>
+        {sortedMonths.map((m) => {
+          const rate = m.salary > 0 ? m.totalInvested / m.salary : 0;
+          const isActive = m.yearMonth === yearMonth;
+          return (
+            <div
+              key={m.yearMonth}
+              ref={isActive ? activeBtnRef : undefined}
+              className={`t1-mp${isActive ? " on" : ""}${rate > 0 && rate < 0.3 ? " warn" : ""}`}
+              onClick={() => navigateMonth(m.yearMonth)}
             >
-              Enviar a Inversión
-            </button>
-            {!isFirstTime && (
-              <button
-                onClick={() => setShowTemplates(!showTemplates)}
-                className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded font-medium"
-              >
-                {showTemplates ? "Ocultar Templates" : "Gestionar Templates"}
-              </button>
-            )}
-          </div>
-
-          {/* Expense list */}
-          <ExpenseList
-            expenses={budget.expenses}
-            categories={categories}
-            budgetId={budget.id}
-            onMutate={refreshBudget}
-          />
-
-          {/* Transfers made this month */}
-          {budget.transfers.length > 0 && (
-            <div className="bg-gray-900 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-400 mb-2">TRANSFERENCIAS A INVERSIÓN</h3>
-              <div className="space-y-2">
-                {budget.transfers.map((t: TransferRow) => (
-                  <div key={t.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-gray-800/50 group">
-                    <div className="flex items-center gap-3">
-                      <span className="text-green-400 font-medium" data-money>{formatArs(t.amountArs)}</span>
-                      <span className="text-gray-400">→</span>
-                      <span className={t.currency === "USD" ? "text-yellow-400" : "text-blue-400"}>
-                        {t.currency === "USD"
-                          ? `US$ ${t.amountUsd?.toFixed(2) ?? "?"}`
-                          : formatArs(t.amountArs)}
-                      </span>
-                      {t.notes && <span className="text-gray-500 text-xs">({t.notes})</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-500 text-xs">{t.date}</span>
-                      <button
-                        onClick={() => setEditingTransfer(t)}
-                        className="text-xs text-gray-600 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        Editar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <span className="t1-mp__n">{monthShort(m.yearMonth)}</span>
+              <span className="t1-mp__v">{formatArs(m.totalSpent)}</span>
+              <span className="t1-mp__b">
+                <span style={{ width: `${Math.min(rate, 1) * 100}%` }} />
+              </span>
             </div>
-          )}
-        </>
-      ) : (
-        <div className="bg-gray-900 rounded-lg p-8 text-center">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <button
-              onClick={() => navigateMonth(prevMonth(yearMonth))}
-              className="text-gray-400 hover:text-white px-3 py-1 rounded hover:bg-gray-800 text-lg"
-            >
-              &lt;
-            </button>
-            <h2 className="text-xl font-semibold">{monthLabel(yearMonth)}</h2>
-            <button
-              onClick={() => navigateMonth(nextMonth(yearMonth))}
-              className="text-gray-400 hover:text-white px-3 py-1 rounded hover:bg-gray-800 text-lg"
-            >
-              &gt;
-            </button>
-          </div>
-          {loading ? (
-            <p className="text-gray-400">Cargando...</p>
-          ) : (
-            <>
-              <p className="text-gray-400 mb-2">No hay presupuesto para este mes</p>
-              {hasTemplates && (
-                <p className="text-gray-500 text-xs mb-4">
-                  Se van a crear automáticamente {templates.filter((t) => t.isActive).length} gastos fijos desde tus templates
-                </p>
+          );
+        })}
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="t1-tabs">
+        <button className={`t1-tab${activeTab === "mes" ? " on" : ""}`} onClick={() => setActiveTab("mes")}>
+          ◐ MES
+        </button>
+        <button className={`t1-tab${activeTab === "historico" ? " on" : ""}`} onClick={() => setActiveTab("historico")}>
+          ◫ HISTÓRICO
+        </button>
+        <button className={`t1-tab${activeTab === "recurrentes" ? " on" : ""}`} onClick={() => setActiveTab("recurrentes")}>
+          ↻ RECURRENTES
+        </button>
+      </div>
+
+      {/* ── Content ── */}
+      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* ══ MES TAB ══ */}
+        {activeTab === "mes" && (
+          <>
+            {/* Month title + actions */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em" }}>
+                  PRESUPUESTO · {budget ? "EN CURSO" : "SIN PRESUPUESTO"}
+                </div>
+                <h1 style={{ fontSize: 22, fontWeight: 600, margin: "4px 0 0", color: "#e8dfb8", letterSpacing: "-0.01em" }}>
+                  {monthLabel(yearMonth).toUpperCase()}
+                  {budget && (
+                    <span style={{ color: "var(--text-dim)", fontWeight: 400, fontSize: 13 }}>
+                      {" "}· {budget.expenses.filter((e) => e.amount !== null).length} MOV
+                    </span>
+                  )}
+                </h1>
+              </div>
+              {budget && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button className="t1-btn" onClick={() => setTriggerAdd((t) => t + 1)}>
+                    + GASTO
+                  </button>
+                  <button className="t1-btn" onClick={() => setActiveTab("recurrentes")}>
+                    ↻ RECURRENTES
+                  </button>
+                  {budget.remaining > 0 && (
+                    <button className="t1-btn success" onClick={() => setShowTransfer(true)}>
+                      ⚡ INVERTIR SOBRANTE
+                    </button>
+                  )}
+                </div>
               )}
-              <button
-                onClick={() => setShowNewMonth(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-sm px-6 py-2.5 rounded font-medium"
-              >
-                Crear Mes
-              </button>
-            </>
-          )}
-        </div>
-      )}
+            </div>
 
-      {/* Comparison section */}
-      {comparison.months.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-400 mb-3">COMPARACIÓN HISTÓRICA</h2>
-          <ComparisonCharts
-            byCategory={comparison.byCategory}
-            byExpense={comparison.byExpense}
-            monthlyTotals={comparison.monthlyTotals}
-            months={comparison.months}
+            {/* Stats */}
+            {budget && (
+              <MonthHeader
+                budgetId={budget.id}
+                yearMonth={yearMonth}
+                salary={budget.salary}
+                mercadoPago={budget.mercadoPago}
+                totalSalary={budget.totalSalary}
+                exchangeRateUsd={budget.exchangeRateUsd}
+                totalSpent={budget.totalSpent}
+                totalPending={budget.totalPending}
+                totalInvested={budget.totalInvested}
+                totalInvestedUsd={budget.totalInvestedUsd}
+                remaining={budget.remaining}
+                onPrev={() => navigateMonth(prevMonth(yearMonth))}
+                onNext={() => navigateMonth(nextMonth(yearMonth))}
+                onUpdated={refreshBudget}
+              />
+            )}
+
+            {/* Stacked bar breakdown */}
+            {budget && budget.expenses.some((e) => e.amount !== null) && (
+              <MonthBreakdownChart
+                salary={budget.totalSalary}
+                expenses={budget.expenses}
+                totalInvested={budget.totalInvested}
+              />
+            )}
+
+            {/* Expense list */}
+            {budget && (
+              <ExpenseList
+                expenses={budget.expenses}
+                categories={categories}
+                budgetId={budget.id}
+                onMutate={refreshBudget}
+                triggerAdd={triggerAdd}
+              />
+            )}
+
+            {/* Transfers section */}
+            {budget && budget.transfers.length > 0 && (
+              <div className="t1-pn">
+                <div className="t1-pn__h">
+                  <b>TRANSFERENCIAS A INVERSIÓN</b>
+                  <span>{budget.transfers.length} operación{budget.transfers.length !== 1 ? "es" : ""} · {formatArs(budget.transfers.reduce((s, t) => s + t.amountArs, 0))}</span>
+                </div>
+                <div>
+                  {budget.transfers.map((t: TransferRow) => (
+                    <div key={t.id} className="t1-transfer-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ color: "var(--up)", fontWeight: 600 }} data-money>
+                          {formatArs(t.amountArs)}
+                        </span>
+                        <span style={{ color: "var(--text-dim)" }}>→</span>
+                        <span style={{ color: t.currency === "USD" ? "var(--accent)" : "var(--blue)" }}>
+                          {t.currency === "USD"
+                            ? `US$ ${t.amountUsd?.toFixed(2) ?? "?"}`
+                            : formatArs(t.amountArs)}
+                        </span>
+                        {t.notes && (
+                          <span style={{ color: "var(--text-mute)", fontSize: 10 }}>({t.notes})</span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ color: "var(--text-dim)", fontSize: 10 }}>{t.date}</span>
+                        <button
+                          className="t1-btn"
+                          style={{ padding: "2px 7px", fontSize: 9 }}
+                          onClick={() => setEditingTransfer(t)}
+                        >
+                          EDITAR
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No budget state */}
+            {!budget && !loading && (
+              <div className="t1-pn" style={{ padding: "40px 20px", textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.14em", marginBottom: 12 }}>
+                  SIN PRESUPUESTO PARA ESTE MES
+                </div>
+                {hasTemplates && (
+                  <div style={{ fontSize: 10, color: "var(--text-dim)", marginBottom: 16 }}>
+                    Se crearán automáticamente {templates.filter((t) => t.isActive).length} gastos fijos desde tus recurrentes
+                  </div>
+                )}
+                <button className="t1-btn accent" onClick={() => setShowNewMonth(true)}>
+                  CREAR MES
+                </button>
+              </div>
+            )}
+
+            {loading && (
+              <div style={{ padding: 20, textAlign: "center", color: "var(--text-dim)", fontSize: 11, letterSpacing: "0.1em" }}>
+                CARGANDO...
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ══ HISTÓRICO TAB ══ */}
+        {activeTab === "historico" && (
+          <>
+            {comparison.months.length > 0 ? (
+              <ComparisonCharts
+                byCategory={comparison.byCategory}
+                byExpense={comparison.byExpense}
+                monthlyTotals={comparison.monthlyTotals}
+                months={comparison.months}
+                onMonthClick={(ym) => navigateMonth(ym)}
+              />
+            ) : (
+              <div className="t1-pn" style={{ padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.1em" }}>
+                  CARGÁ AL MENOS 2 MESES PARA VER COMPARACIONES
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ══ RECURRENTES TAB ══ */}
+        {activeTab === "recurrentes" && (
+          <TemplateManager
+            templates={templates}
+            categories={categories}
+            allMonths={allMonths}
           />
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       {showTransfer && budget && (
         <TransferModal
           budgetId={budget.id}

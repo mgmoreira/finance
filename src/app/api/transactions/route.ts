@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transactions, species, cashMovements } from "@/db/schema";
+import { transactions, species, cashMovements, priceCache } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { fetchMep, fetchCedearHistory } from "@/lib/data912";
 import { fetchQuotes } from "@/lib/yahoo";
@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate prices
-    let priceArs: number;
-    let priceUsd: number;
+    let priceArs = 0;
+    let priceUsd = 0;
 
     if (price) {
       // User provided a price
@@ -73,21 +73,37 @@ export async function POST(request: NextRequest) {
         priceArs = price * exchangeRate;
       }
     } else {
-      // No price provided — fetch historical CEDEAR ARS price for that date
+      // No price provided — fetch CEDEAR ARS price for that date
       try {
+        const today = new Date().toISOString().slice(0, 10);
         const bymaTicker = usToBymaTicker[ticker] ?? ticker;
-        const history = await fetchCedearHistory(bymaTicker);
-        const sorted = history.sort((a, b) => a.date.localeCompare(b.date));
-        let match = sorted.find((h) => h.date === date);
-        if (!match) {
-          const before = sorted.filter((h) => h.date <= date);
-          match = before.length > 0 ? before[before.length - 1] : undefined;
+        let resolvedFromCache = false;
+
+        // For today's date, the historical endpoint may have incomplete intraday data.
+        // Use the live price from cache instead (refreshed by the refresh-prices button).
+        if (date === today) {
+          const cached = await db.select().from(priceCache).where(eq(priceCache.ticker, ticker)).get();
+          if (cached?.priceArs && cached.priceArs > 0) {
+            priceArs = cached.priceArs;
+            priceUsd = priceArs / exchangeRate;
+            resolvedFromCache = true;
+          }
         }
-        if (!match || !match.close) {
-          return NextResponse.json({ error: `No se encontró precio para ${ticker} en ${date}. Ingresá el precio manualmente.` }, { status: 400 });
+
+        if (!resolvedFromCache) {
+          const history = await fetchCedearHistory(bymaTicker);
+          const sorted = history.sort((a, b) => a.date.localeCompare(b.date));
+          let match = sorted.find((h) => h.date === date);
+          if (!match) {
+            const before = sorted.filter((h) => h.date <= date);
+            match = before.length > 0 ? before[before.length - 1] : undefined;
+          }
+          if (!match || !match.close) {
+            return NextResponse.json({ error: `No se encontró precio para ${ticker} en ${date}. Ingresá el precio manualmente.` }, { status: 400 });
+          }
+          priceArs = match.close;
+          priceUsd = priceArs / exchangeRate;
         }
-        priceArs = match.close;
-        priceUsd = priceArs / exchangeRate;
       } catch {
         return NextResponse.json({ error: `No se pudo buscar el precio de ${ticker}. Ingresá el precio manualmente.` }, { status: 400 });
       }

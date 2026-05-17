@@ -122,3 +122,11 @@ export const monthlySnapshots = sqliteTable("monthly_snapshots", {
   sp500Value: real("sp500_value"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
+
+export const cryptoMonthlySnapshots = sqliteTable("crypto_monthly_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  yearMonth: text("year_month").notNull().unique(),
+  totalValueUsd: real("total_value_usd").notNull(),
+  totalInvestedUsd: real("total_invested_usd").notNull(),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
