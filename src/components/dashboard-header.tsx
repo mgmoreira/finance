@@ -132,9 +132,9 @@ export function DashboardHeader({ summary }: { summary: PortfolioSummary }) {
             dataMoney
           />
           <MetricCell
-            label="Ganancia TWR"
-            value={fmtPct(summary.twrPct)}
-            sub={"costo base " + fmtPct(summary.totalGainPct)}
+            label="Ganancia"
+            value={fmtPct(summary.totalGainPct)}
+            sub={"TWR " + fmtPct(summary.twrPct)}
             accentColor={gainColor}
           />
           <MetricCell
@@ -215,7 +215,7 @@ export function DashboardHeader({ summary }: { summary: PortfolioSummary }) {
               fontWeight: 600,
             }}
           >
-            {fmtPct(summary.twrPct)}
+            {fmtPct(summary.totalGainPct)}
           </span>
           <span
             style={{
