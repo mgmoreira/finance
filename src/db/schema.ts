@@ -23,6 +23,7 @@ export const species = sqliteTable("species", {
   country: text("country").notNull(),
   parity: real("parity").notNull().default(1),
   dividendYield: real("dividend_yield").default(0),
+  withholdingPct: real("withholding_pct"), // effective dividend withholding %, null = default by country
 });
 
 export const priceCache = sqliteTable("price_cache", {
@@ -168,4 +169,13 @@ export const goalScenarios = sqliteTable("goal_scenarios", {
   color: text("color").notNull(),
   visible: integer("visible").notNull().default(1),
   sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const dividendCache = sqliteTable("dividend_cache", {
+  ticker: text("ticker").primaryKey(),
+  events: text("events").notNull().default("[]"), // JSON [{ exDate, amount }]
+  nextExDate: text("next_ex_date"),
+  nextPayDate: text("next_pay_date"),
+  payLagDays: integer("pay_lag_days").notNull().default(25),
+  updatedAt: text("updated_at").notNull(),
 });

@@ -29,6 +29,7 @@ interface MonthlySnapshot {
 
 interface Props {
   snapshots: MonthlySnapshot[];
+  show?: "evolution" | "gain" | "both"; // which panel(s) to render
 }
 
 function formatMonthShort(ym: string) {
@@ -81,7 +82,7 @@ function PanelWrapper({ title, children }: { title: string; children: React.Reac
   );
 }
 
-export function PortfolioCharts({ snapshots }: Props) {
+export function PortfolioCharts({ snapshots, show = "both" }: Props) {
   const evolutionData = useMemo(() => {
     if (snapshots.length === 0) return [];
     const first = snapshots[0];
@@ -133,6 +134,7 @@ export function PortfolioCharts({ snapshots }: Props) {
         }
       `}</style>
       {/* Evolution chart */}
+      {show !== "gain" && (
       <PanelWrapper title="MI CARTERA VS S&P 500 · mismo dinero cada mes">
         <ResponsiveContainer width="100%" height={chartHeightTop}>
           <LineChart data={evolutionData} margin={isMobile ? { top: 5, right: 8, left: -10, bottom: 0 } : undefined}>
@@ -186,8 +188,10 @@ export function PortfolioCharts({ snapshots }: Props) {
           </LineChart>
         </ResponsiveContainer>
       </PanelWrapper>
+      )}
 
       {/* Monthly gain bars */}
+      {show !== "evolution" && (
       <PanelWrapper title="GANANCIA MENSUAL · % portfolio">
         <ResponsiveContainer width="100%" height={chartHeightBot}>
           <BarChart data={gainData} margin={isMobile ? { top: 5, right: 8, left: -10, bottom: 0 } : undefined}>
@@ -239,6 +243,7 @@ export function PortfolioCharts({ snapshots }: Props) {
           </BarChart>
         </ResponsiveContainer>
       </PanelWrapper>
+      )}
     </div>
   );
 }

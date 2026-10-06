@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Position, TransactionRow } from "@/lib/calculations";
 import { TickerDrawer } from "./ticker-drawer";
 import { NewOperationModal } from "./new-operation-modal";
+import type { TickerDividend } from "@/lib/dividends";
 
 type SortKey =
   | "ticker"
@@ -22,6 +23,7 @@ interface Props {
   positions: Position[];
   transactions: TransactionRow[];
   speciesList: { ticker: string; name: string }[];
+  dividends?: TickerDividend[];
 }
 
 const SECTORS = ["Todos", "TECNOLOGIA", "ENERGIA", "SALUD", "E-COMMERCE", "MINERIA", "CONSUMO", "AGRO", "ETF"];
@@ -38,7 +40,7 @@ function fmtUsPrice(v: number) {
   return v > 0 ? v.toFixed(2) : "—";
 }
 
-export function PositionsTable({ positions, transactions, speciesList }: Props) {
+export function PositionsTable({ positions, transactions, speciesList, dividends }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("portfolioPct");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [filter, setFilter] = useState("Todos");
@@ -359,6 +361,7 @@ export function PositionsTable({ positions, transactions, speciesList }: Props) 
       <TickerDrawer
         position={selected}
         transactions={transactions}
+        dividend={selected ? dividends?.find((d) => d.ticker === selected.ticker) : undefined}
         onClose={() => setSelected(null)}
         onBuyTicker={(ticker) => { setSelected(null); setModalDefaults({ type: "BUY", ticker }); setShowModal(true); }}
         onSellTicker={(ticker) => {

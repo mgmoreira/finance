@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  bonusFor, measureDate, projectScenario, projectToGoal, reachGoal, sortByGoal, GOAL, targetAt, nextTarget, ageAt, partsTotal,
+  bonusFor, measureDate, projectScenario, projectToGoal, reachGoal, sortByGoal, sumContributions, GOAL, targetAt, nextTarget, ageAt, partsTotal,
 } from "./goals";
 
 const BONUS = [3333, 6666, 9999, 13333, 16666, 20000];
@@ -93,4 +93,14 @@ test("sortByGoal: primero el que llega antes a 1M; los que nunca llegan al final
   assert.deepEqual(sorted.map((s) => s.name), [
     "MELI con bono", "MELI 18k + bono", "MELI sin bono", "15%", "10%", "MELI sin rendimiento", "nunca",
   ]);
+});
+
+test("sumContributions: últimos 12 meses en USD con fallback de tipo de cambio", () => {
+  const rows = [
+    { date: "2026-08-10", amountUsd: 1000, amountArs: 0, rate: null },
+    { date: "2026-04-10", amountUsd: null, amountArs: 1500000, rate: 1500 },
+    { date: "2026-01-10", amountUsd: null, amountArs: 300000, rate: null }, // sin cotización → se ignora
+    { date: "2025-09-01", amountUsd: 5000, amountArs: 0, rate: null }, // fuera de los 12 meses
+  ];
+  assert.equal(sumContributions(rows, "2026-10-06"), 2000);
 });

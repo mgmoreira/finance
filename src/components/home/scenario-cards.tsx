@@ -5,7 +5,7 @@ import { fmtUsd, fmtSignedUsd, fmtPct, fmtCut } from "./format";
 
 const LABEL = { fontSize: 9, color: "var(--text-dim)", letterSpacing: 0.8, marginTop: 8 } as const;
 
-export function ScenarioCards({ scenarios, today }: { scenarios: Scenario[]; today: CurrentWealth }) {
+export function ScenarioCards({ scenarios, today, contributions12m }: { scenarios: Scenario[]; today: CurrentWealth; contributions12m: number }) {
   const cards = scenarios
     .filter((s) => s.visible)
     .map((s) => {
@@ -76,6 +76,16 @@ export function ScenarioCards({ scenarios, today }: { scenarios: Scenario[]; tod
             ) : (
               <div style={{ color: "var(--text-dim)" }}>NO LLEGA ANTES DE 2100</div>
             )}
+
+            <div style={LABEL}>APORTE / AÑO</div>
+            <div>
+              <span style={{ color: "var(--text-dim)" }}>escenario </span>
+              <span data-money>{fmtUsd(s.contribution)}</span>
+              <span style={{ color: "var(--text-dim)" }}> · real 12m </span>
+              <span data-money style={{ color: contributions12m >= s.contribution ? "var(--up)" : "var(--down)", fontWeight: 600 }}>
+                {fmtUsd(contributions12m)}
+              </span>
+            </div>
           </div>
         );
       })}

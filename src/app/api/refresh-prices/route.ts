@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/db";
 import { priceCache, species, monthlySnapshots, transactions } from "@/db/schema";
 import { fetchCedears, fetchArgStocks, fetchMep, fetchCedearHistory } from "@/lib/data912";
 import { fetchQuotes } from "@/lib/yahoo";
+import { refreshDividendCache, heldTickers } from "@/lib/dividend-refresh";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
@@ -183,6 +184,13 @@ export async function GET() {
         .set({ sp500Value: spyPrice })
         .where(eq(monthlySnapshots.yearMonth, currentMonth));
     }
+
+    // Dividend history/calendar: slow (Yahoo), so it runs after responding; only stale (> 1 day) held tickers
+    after(() =>
+      heldTickers()
+        .then((held) => refreshDividendCache(held))
+        .catch((e) => console.error("Dividend refresh failed:", e))
+    );
 
     return NextResponse.json({ ok: true, updated: tickers.length, timestamp: now });
   } catch (error) {

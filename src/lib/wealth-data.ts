@@ -1,9 +1,9 @@
 import { db } from "@/db";
-import { wealthSnapshots, goalScenarios } from "@/db/schema";
-import { asc, desc } from "drizzle-orm";
+import { wealthSnapshots, goalScenarios, investmentTransfers, monthlyBudgets } from "@/db/schema";
+import { asc, desc, eq } from "drizzle-orm";
 import { getPortfolioSummary } from "@/lib/calculations";
 import { getCryptoSummary } from "@/lib/crypto-data";
-import { partsTotal, type Scenario, type WealthParts } from "@/lib/goals";
+import { partsTotal, sumContributions, type Scenario, type WealthParts } from "@/lib/goals";
 
 export interface WealthSnapshot extends WealthParts {
   id: number;
@@ -21,6 +21,7 @@ export interface WealthOverview {
   today: CurrentWealth;
   snapshots: WealthSnapshot[];
   scenarios: Scenario[];
+  contributions12m: number;
 }
 
 // Today's date in Argentina as YYYY-MM-DD
@@ -76,11 +77,30 @@ export async function getCurrentWealth(): Promise<CurrentWealth> {
   return { date: todayAR(), ...parts, total: partsTotal(parts) };
 }
 
+// USD sent to investments (GASTOS transfers) in the last 12 months
+export async function getContributions12m(): Promise<number> {
+  const rows = await db
+    .select({
+      date: investmentTransfers.date,
+      amountUsd: investmentTransfers.amountUsd,
+      amountArs: investmentTransfers.amountArs,
+      transferRate: investmentTransfers.exchangeRate,
+      budgetRate: monthlyBudgets.exchangeRateUsd,
+    })
+    .from(investmentTransfers)
+    .leftJoin(monthlyBudgets, eq(investmentTransfers.budgetId, monthlyBudgets.id));
+  return sumContributions(
+    rows.map((r) => ({ date: r.date, amountUsd: r.amountUsd, amountArs: r.amountArs, rate: r.transferRate ?? r.budgetRate })),
+    todayAR()
+  );
+}
+
 export async function getWealthOverview(): Promise<WealthOverview> {
-  const [today, snapshots, scenarios] = await Promise.all([
+  const [today, snapshots, scenarios, contributions12m] = await Promise.all([
     getCurrentWealth(),
     getWealthSnapshots(),
     getScenarios(),
+    getContributions12m(),
   ]);
-  return { today, snapshots, scenarios };
+  return { today, snapshots, scenarios, contributions12m };
 }

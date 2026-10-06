@@ -2,6 +2,7 @@
 
 import { Position, TransactionRow } from "@/lib/calculations";
 import { useEffect } from "react";
+import type { TickerDividend } from "@/lib/dividends";
 
 interface Props {
   position: Position | null;
@@ -9,7 +10,11 @@ interface Props {
   onClose: () => void;
   onBuyTicker?: (ticker: string) => void;
   onSellTicker?: (ticker: string) => void;
+  dividend?: TickerDividend;
 }
+
+// Position-sized amounts that the hide-money toggle must blur
+const MONEY_STATS = new Set(["Invertido", "Div. neto/año", "Próx. dividendo"]);
 
 function fmtUsd(v: number) {
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -19,7 +24,7 @@ function fmtMoney(v: number) {
   return "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onSellTicker }: Props) {
+export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onSellTicker, dividend }: Props) {
   useEffect(() => {
     if (!position) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -55,8 +60,11 @@ export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onS
     ["Dist. ATH", (position.athDistance > 0 ? "-" : "+") + Math.abs(position.athDistance).toFixed(1) + "%"],
     ["Paridad", String(position.parity)],
     ["Precio ARS", "$" + position.priceArs.toLocaleString("es-AR", { maximumFractionDigits: 0 })],
-    ...(position.dividendYield > 0
-      ? [["Dividendo", position.dividendYield.toFixed(2) + "%"] as [string, string]]
+    ...(dividend
+      ? ([
+          ["Div. neto/año", `$${dividend.next12Net.toFixed(2)} · ${dividend.grossYieldPct.toFixed(2)}% bruto`],
+          ["Próx. dividendo", dividend.next ? `${dividend.next.payDate.slice(8, 10)}/${dividend.next.payDate.slice(5, 7)} · $${dividend.next.net.toFixed(2)}` : "—"],
+        ] as [string, string][])
       : []),
   ];
 
@@ -214,6 +222,7 @@ export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onS
                     fontVariantNumeric: "tabular-nums",
                     marginTop: 3,
                   }}
+                  data-money={MONEY_STATS.has(label) || undefined}
                 >
                   {value}
                 </div>

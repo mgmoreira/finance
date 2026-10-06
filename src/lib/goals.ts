@@ -117,3 +117,22 @@ export function ageAt(date: string): number {
 export function partsTotal(p: WealthParts): number {
   return Math.round((p.stocksUsd + p.bondsUsd + p.cryptoUsd + p.cashUsd) * 100) / 100;
 }
+
+export interface ContributionRow {
+  date: string;
+  amountUsd: number | null;
+  amountArs: number;
+  rate: number | null; // transfer rate, or the month's budget rate as fallback
+}
+
+// USD sent to investments in the last 12 months (rows without any USD value or rate are skipped)
+export function sumContributions(rows: ContributionRow[], today: string): number {
+  const yearAgo = `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`;
+  let total = 0;
+  for (const r of rows) {
+    if (r.date <= yearAgo || r.date > today) continue;
+    if (r.amountUsd != null) total += r.amountUsd;
+    else if (r.rate && r.rate > 0) total += r.amountArs / r.rate;
+  }
+  return total;
+}

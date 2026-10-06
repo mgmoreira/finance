@@ -13,7 +13,7 @@ export function HomeDashboard({ overview }: { overview: WealthOverview }) {
     <div className="page-wrap" style={{ padding: 14, display: "grid", gap: 12, maxWidth: 1600, margin: "0 auto" }}>
       <WealthHeader today={today} />
       <GoalsChart scenarios={scenarios} snapshots={snapshots} today={today} />
-      <ScenarioCards scenarios={scenarios} today={today} />
+      <ScenarioCards scenarios={scenarios} today={today} contributions12m={overview.contributions12m} />
       <SnapshotsTable snapshots={snapshots} scenarios={scenarios} />
       <ScenarioManager scenarios={scenarios} />
     </div>

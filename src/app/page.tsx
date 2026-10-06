@@ -10,6 +10,8 @@ import { RefreshButton } from "@/components/refresh-button";
 import { PortfolioCharts } from "@/components/portfolio-charts";
 import { RealizedPnl } from "@/components/realized-pnl";
 import { PriceAlerts } from "@/components/price-alerts";
+import { getDividendSummary } from "@/lib/dividend-data";
+import { DividendsPanel } from "@/components/dividends-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,7 @@ export default async function Home() {
     db.select({ ticker: species.ticker, name: species.name }).from(species),
     getRealizedPnl(),
   ]);
+  const dividends = await getDividendSummary(summary.positions, summary.totalValue);
 
   return (
     <main data-section="investments" style={{ minHeight: "100vh" }}>
@@ -37,7 +40,14 @@ export default async function Home() {
           positions={summary.positions}
           transactions={txns}
           speciesList={speciesList}
+          dividends={dividends.tickers}
         />
+
+        {/* Monthly gain right after holdings */}
+        <PortfolioCharts snapshots={summary.monthlyStats} show="gain" />
+
+        {/* Dividends (estimated) */}
+        <DividendsPanel summary={dividends} stocksValue={summary.totalValue} />
 
         {/* Allocation panels */}
         <SummaryCards
@@ -45,8 +55,8 @@ export default async function Home() {
           bySector={summary.bySector.map((s) => ({ label: s.sector, value: s.value, pct: s.pct }))}
         />
 
-        {/* Portfolio evolution & monthly gain charts */}
-        <PortfolioCharts snapshots={summary.monthlyStats} />
+        {/* Portfolio evolution vs S&P 500 */}
+        <PortfolioCharts snapshots={summary.monthlyStats} show="evolution" />
 
         {/* Deposits by date */}
         <InvestmentsByDate byDate={investments.byDate} byMonth={investments.byMonth} />

@@ -44,6 +44,8 @@ Los campos reales difieren de lo esperado: `symbol→ticker`, `c→last`, `px_bi
 - `src/db/index.ts` — Lazy DB init via Proxy (evita error de env vars en build de Vercel)
 - `src/db/schema.ts` — transactions tiene columna `stockPriceUsd` para precio real US de entrada
 - `src/lib/goals.ts` — Proyección de escenarios de objetivos (pura, testeada con `npm test`)
+- `src/lib/dividends.ts` — Estimación de dividendos (pura, testeada)
+- `src/lib/dividend-refresh.ts` — Cache Yahoo de dividendos (1/día por ticker, desde refresh-prices)
 - `src/lib/wealth-data.ts` — Patrimonio total (CEDEARs + crypto + cash + bonos del último corte)
 - `src/app/objetivos/page.tsx` — Patrimonio total + objetivos (último ítem del menú); `/` sigue siendo la bolsa
 
@@ -55,6 +57,12 @@ Los campos reales difieren de lo esperado: `symbol→ticker`, `c→last`, `px_bi
 - Tablas `wealth_snapshots` (cortes 1/3 y 1/9, auto vía cron `/api/wealth/snapshot` o manuales) y `goal_scenarios` (parámetros)
 - Fórmula anual: `valor × (1 + tasa) + aporte + bono[año] × factorBono`; el año X se mide el 1/3 de X+1
 - Bonos no se trackean en la app: se cargan a mano en los cortes
+
+## Dividendos
+- Estimados (sin montos reales): CEDEARs al corte ÷ paridad × dividendo por acción × (1 − retención)
+- Retención efectiva validada con cobros reales: EEUU 35%, Brasil ~25%; editable por acción en `species.withholding_pct`
+- Pago en BYMA = pago en EEUU + 1 día
+- Paridades corregidas en Oct 2026 (estaban mal desde el seed); YPF = 10 según precios
 
 ## Workflow
 - NUNCA commitear, pushear ni deployar sin preguntar al usuario primero
