@@ -10,6 +10,8 @@ type SortKey =
   | "quantity"
   | "avgPriceUsd"
   | "currentPriceUsd"
+  | "avgStockPriceUsd"
+  | "stockPriceUsd"
   | "invested"
   | "currentValue"
   | "pnl"
@@ -30,6 +32,10 @@ function fmtUsd(v: number) {
 
 function fmtPrice(v: number) {
   return v.toFixed(2);
+}
+
+function fmtUsPrice(v: number) {
+  return v > 0 ? v.toFixed(2) : "—";
 }
 
 export function PositionsTable({ positions, transactions, speciesList }: Props) {
@@ -164,6 +170,18 @@ export function PositionsTable({ positions, transactions, speciesList }: Props) 
                 <th style={thStyle("currentPriceUsd")} onClick={() => toggleSort("currentPriceUsd")}>
                   Actual{sortIndicator("currentPriceUsd")}
                 </th>
+                <th
+                  style={{ ...thStyle("avgStockPriceUsd"), color: sortKey === "avgStockPriceUsd" ? "var(--accent)" : "var(--blue)" }}
+                  onClick={() => toggleSort("avgStockPriceUsd")}
+                >
+                  Prom EEUU{sortIndicator("avgStockPriceUsd")}
+                </th>
+                <th
+                  style={{ ...thStyle("stockPriceUsd"), color: sortKey === "stockPriceUsd" ? "var(--accent)" : "var(--blue)" }}
+                  onClick={() => toggleSort("stockPriceUsd")}
+                >
+                  Act EEUU{sortIndicator("stockPriceUsd")}
+                </th>
                 <th style={thStyle("invested")} onClick={() => toggleSort("invested")}>
                   Invertido{sortIndicator("invested")}
                 </th>
@@ -218,6 +236,12 @@ export function PositionsTable({ positions, transactions, speciesList }: Props) 
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
                       {fmtPrice(pos.currentPriceUsd)}
+                    </td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: "var(--blue)", opacity: 0.75 }}>
+                      {fmtUsPrice(pos.avgStockPriceUsd)}
+                    </td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: "var(--blue)" }}>
+                      {fmtUsPrice(pos.stockPriceUsd)}
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right", color: "var(--text-dim)" }}>
                       <span data-money>{fmtUsd(pos.invested)}</span>
@@ -305,6 +329,11 @@ export function PositionsTable({ positions, transactions, speciesList }: Props) 
                   <div style={{ fontSize: 9.5, color: "var(--text-dim)", marginTop: 2 }}>
                     {pos.sector} · {pos.country} · {pos.quantity.toLocaleString("en-US")}u
                   </div>
+                  {pos.stockPriceUsd > 0 && (
+                    <div style={{ fontSize: 9.5, color: "var(--blue)", marginTop: 2 }}>
+                      EEUU {fmtUsPrice(pos.avgStockPriceUsd)} → {fmtUsPrice(pos.stockPriceUsd)}
+                    </div>
+                  )}
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontWeight: 500, fontSize: 13 }} data-money>

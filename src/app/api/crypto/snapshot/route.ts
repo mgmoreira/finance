@@ -3,6 +3,56 @@ import { db } from "@/db";
 import { cryptoHoldings, cryptoPriceCache, cryptoMonthlySnapshots } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+type Holding = typeof cryptoHoldings.$inferSelect;
+
+function investedUsd(holdings: Holding[]) {
+  return Math.round(
+    holdings.reduce((sum, h) => {
+      const ep = h.entryPriceUsd ?? h.entryValueUsd / h.quantity;
+      return sum + h.quantity * ep;
+    }, 0) * 100
+  ) / 100;
+}
+
+// Value of holdings at the last daily close of the given month (Yahoo history).
+// Tickers without Yahoo data fall back to `fallbackPrices` (if given) or are skipped.
+async function monthEndValue(
+  holdings: Holding[],
+  year: number,
+  month: number,
+  fallbackPrices?: Map<string, number | null>
+) {
+  const YahooFinance = (await import("yahoo-finance2")).default;
+  const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+
+  const firstDay = new Date(Date.UTC(year, month - 1, 1));
+  const nextMonth = new Date(Date.UTC(year, month, 1)); // period2 is exclusive
+
+  let totalValueUsd = 0;
+  const skippedTickers: string[] = [];
+
+  for (const h of holdings) {
+    let price: number | null = null;
+    if (h.yahooTicker) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chart: any = await yf.chart(h.yahooTicker, {
+          period1: firstDay,
+          period2: nextMonth,
+          interval: "1d",
+        });
+        const quotes = (chart.quotes ?? []).filter((q: { close: number | null }) => q.close != null);
+        price = quotes.at(-1)?.close ?? null;
+      } catch { /* fall through */ }
+    }
+    if ((price == null || price <= 0) && fallbackPrices) price = fallbackPrices.get(h.ticker) ?? null;
+    if (price != null && price > 0) totalValueUsd += h.quantity * price;
+    else skippedTickers.push(h.ticker);
+  }
+
+  return { totalValueUsd: Math.round(totalValueUsd * 100) / 100, skippedTickers };
+}
+
 // GET — cron: runs on 2nd of each month, snapshots previous month-end value
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -15,7 +65,9 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const yearMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+  const year = prevDate.getFullYear();
+  const month = prevDate.getMonth() + 1;
+  const yearMonth = `${year}-${String(month).padStart(2, "0")}`;
 
   const existing = await db
     .select()
@@ -30,27 +82,18 @@ export async function GET(request: NextRequest) {
     db.select().from(cryptoHoldings),
     db.select().from(cryptoPriceCache),
   ]);
-  const priceMap = new Map(prices.map((p) => [p.ticker, p.priceUsd]));
+  // Cache is only a fallback — it may be stale if nobody refreshed during the month
+  const fallback = new Map(prices.map((p) => [p.ticker, p.priceUsd]));
 
-  let totalValueUsd = 0;
-  let totalInvestedUsd = 0;
-
-  for (const h of holdings) {
-    const entryPriceUsd = h.entryPriceUsd ?? h.entryValueUsd / h.quantity;
-    const priceUsd = priceMap.get(h.ticker) ?? null;
-    totalInvestedUsd += h.quantity * entryPriceUsd;
-    if (priceUsd != null && priceUsd > 0) totalValueUsd += h.quantity * priceUsd;
-  }
-
-  totalValueUsd = Math.round(totalValueUsd * 100) / 100;
-  totalInvestedUsd = Math.round(totalInvestedUsd * 100) / 100;
+  const { totalValueUsd, skippedTickers } = await monthEndValue(holdings, year, month, fallback);
+  const totalInvestedUsd = investedUsd(holdings);
 
   await db.insert(cryptoMonthlySnapshots).values({ yearMonth, totalValueUsd, totalInvestedUsd });
 
-  return NextResponse.json({ ok: true, yearMonth, totalValueUsd, totalInvestedUsd });
+  return NextResponse.json({ ok: true, yearMonth, totalValueUsd, totalInvestedUsd, skippedTickers });
 }
 
-// POST — backfill: fetch Yahoo historical prices for last N months
+// POST — backfill: recompute last N months from Yahoo month-end closes
 export async function POST(request: NextRequest) {
   let months = 3;
   try {
@@ -59,17 +102,7 @@ export async function POST(request: NextRequest) {
   } catch { /* use default */ }
 
   const holdings = await db.select().from(cryptoHoldings);
-  const holdingsWithYahoo = holdings.filter((h) => h.yahooTicker);
-
-  const totalInvestedUsd = Math.round(
-    holdings.reduce((sum, h) => {
-      const ep = h.entryPriceUsd ?? h.entryValueUsd / h.quantity;
-      return sum + h.quantity * ep;
-    }, 0) * 100
-  ) / 100;
-
-  const YahooFinance = (await import("yahoo-finance2")).default;
-  const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+  const totalInvestedUsd = investedUsd(holdings);
 
   const now = new Date();
   const results = [];
@@ -79,33 +112,8 @@ export async function POST(request: NextRequest) {
     const year = d.getFullYear();
     const month = d.getMonth() + 1;
     const yearMonth = `${year}-${String(month).padStart(2, "0")}`;
-    const firstDay = new Date(year, month - 1, 1);
-    const lastDay = new Date(year, month, 0); // day 0 of next month = last day of this month
 
-    let totalValueUsd = 0;
-    const skippedTickers: string[] = [];
-
-    for (const h of holdingsWithYahoo) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const chart: any = await yf.chart(h.yahooTicker!, {
-          period1: firstDay,
-          period2: lastDay,
-          interval: "1d",
-        });
-        const quotes = (chart.quotes ?? []).filter((q: { close: number | null }) => q.close != null);
-        const lastClose = quotes.at(-1)?.close ?? null;
-        if (lastClose != null && lastClose > 0) {
-          totalValueUsd += h.quantity * lastClose;
-        } else {
-          skippedTickers.push(h.ticker);
-        }
-      } catch {
-        skippedTickers.push(h.ticker);
-      }
-    }
-
-    totalValueUsd = Math.round(totalValueUsd * 100) / 100;
+    const { totalValueUsd, skippedTickers } = await monthEndValue(holdings, year, month);
 
     await db
       .insert(cryptoMonthlySnapshots)

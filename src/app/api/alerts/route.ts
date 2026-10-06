@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { priceAlerts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { fetchQuotes } from "@/lib/yahoo";
 
 export async function GET() {
   const alerts = await db
     .select()
     .from(priceAlerts)
     .orderBy(desc(priceAlerts.createdAt));
-  return NextResponse.json(alerts);
+
+  // Attach current US price (same Yahoo source the check cron uses) for active alerts
+  const activeTickers = [...new Set(alerts.filter((a) => a.active === 1).map((a) => a.ticker))];
+  let prices = new Map<string, { regularMarketPrice: number }>();
+  if (activeTickers.length > 0) {
+    try {
+      prices = await fetchQuotes(activeTickers);
+    } catch { /* show alerts without current price */ }
+  }
+
+  return NextResponse.json(
+    alerts.map((a) => ({ ...a, currentPrice: prices.get(a.ticker)?.regularMarketPrice || null }))
+  );
 }
 
 export async function POST(request: NextRequest) {

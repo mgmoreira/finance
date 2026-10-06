@@ -37,6 +37,10 @@ export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onS
     ? ((position.currentPriceUsd / position.avgPriceUsd) - 1) * 100
     : 0;
 
+  const varEeuuPct = position.avgStockPriceUsd > 0 && position.stockPriceUsd > 0
+    ? ((position.stockPriceUsd / position.avgStockPriceUsd) - 1) * 100
+    : null;
+
   const stats: [string, string][] = [
     ["Cantidad", position.quantity.toLocaleString("en-US")],
     ["Peso cartera", position.portfolioPct.toFixed(1) + "%"],
@@ -44,6 +48,9 @@ export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onS
     ["Precio actual", fmtUsd(position.currentPriceUsd)],
     ["Invertido", fmtMoney(position.invested)],
     ["Var precio", (varPrecioPct >= 0 ? "+" : "") + varPrecioPct.toFixed(2) + "%"],
+    ["Prom EEUU", position.avgStockPriceUsd > 0 ? fmtUsd(position.avgStockPriceUsd) : "—"],
+    ["Actual EEUU", position.stockPriceUsd > 0 ? fmtUsd(position.stockPriceUsd) : "—"],
+    ["Var EEUU", varEeuuPct === null ? "—" : (varEeuuPct >= 0 ? "+" : "") + varEeuuPct.toFixed(2) + "%"],
     ["ATH (EEUU)", fmtUsd(position.ath)],
     ["Dist. ATH", (position.athDistance > 0 ? "-" : "+") + Math.abs(position.athDistance).toFixed(1) + "%"],
     ["Paridad", String(position.parity)],
@@ -303,6 +310,11 @@ export function TickerDrawer({ position, transactions, onClose, onBuyTicker, onS
                     </span>
                     <span style={{ color: "var(--text-dim)" }}>
                       {o.quantity} × {fmtUsd(o.priceUsd)}
+                      {o.stockPriceUsd ? (
+                        <span style={{ color: "var(--blue)", marginLeft: 6 }}>
+                          · EEUU {fmtUsd(o.stockPriceUsd)}
+                        </span>
+                      ) : null}
                     </span>
                     <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }} data-money>
                       {fmtMoney(o.totalUsd)}
