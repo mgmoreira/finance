@@ -9,6 +9,7 @@ const sections = [
   { href: "/", label: "BOLSA" },
   { href: "/crypto", label: "CRYPTO" },
   { href: "/gastos", label: "GASTOS" },
+  { href: "/objetivos", label: "OBJETIVOS" },
 ];
 
 const NAV_CSS = `

@@ -140,3 +140,32 @@ export const cryptoMonthlySnapshots = sqliteTable("crypto_monthly_snapshots", {
   totalInvestedUsd: real("total_invested_usd").notNull(),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
+
+// ── Home: patrimonio y objetivos ──
+
+export const wealthSnapshots = sqliteTable("wealth_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull().unique(), // YYYY-03-01 or YYYY-09-01
+  stocksUsd: real("stocks_usd").notNull().default(0),
+  bondsUsd: real("bonds_usd").notNull().default(0),
+  cryptoUsd: real("crypto_usd").notNull().default(0),
+  cashUsd: real("cash_usd").notNull().default(0),
+  source: text("source", { enum: ["auto", "manual"] }).notNull().default("manual"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at"),
+});
+
+export const goalScenarios = sqliteTable("goal_scenarios", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  startYear: integer("start_year").notNull(),
+  startValue: real("start_value").notNull(),
+  rate: real("rate").notNull(),
+  contribution: real("contribution").notNull(),
+  bonusFactor: real("bonus_factor").notNull().default(0),
+  bonusSchedule: text("bonus_schedule").notNull().default("[]"), // JSON number[]
+  endYear: integer("end_year").notNull(),
+  color: text("color").notNull(),
+  visible: integer("visible").notNull().default(1),
+  sortOrder: integer("sort_order").notNull().default(0),
+});

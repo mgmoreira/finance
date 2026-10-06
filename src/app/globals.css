@@ -43,7 +43,8 @@ body {
 
 /* hide-money blur */
 .hide-money [data-section="investments"] [data-money],
-.hide-money [data-section="crypto"] [data-money] {
+.hide-money [data-section="crypto"] [data-money],
+.hide-money [data-section="home"] [data-money] {
   filter: blur(8px);
   user-select: none;
   transition: filter 0.2s;

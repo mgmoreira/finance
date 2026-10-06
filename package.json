@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "npx tsx src/db/seed.ts"
+    "seed": "npx tsx src/db/seed.ts",
+    "test": "tsx --test src/lib/*.test.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",

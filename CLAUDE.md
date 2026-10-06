@@ -43,10 +43,18 @@ Los campos reales difieren de lo esperado: `symbol→ticker`, `c→last`, `px_bi
 - `src/app/api/price-lookup/route.ts` — Historical CEDEAR price lookup
 - `src/db/index.ts` — Lazy DB init via Proxy (evita error de env vars en build de Vercel)
 - `src/db/schema.ts` — transactions tiene columna `stockPriceUsd` para precio real US de entrada
+- `src/lib/goals.ts` — Proyección de escenarios de objetivos (pura, testeada con `npm test`)
+- `src/lib/wealth-data.ts` — Patrimonio total (CEDEARs + crypto + cash + bonos del último corte)
+- `src/app/objetivos/page.tsx` — Patrimonio total + objetivos (último ítem del menú); `/` sigue siendo la bolsa
 
 ## Monthly Snapshots
 - Tabla `monthly_snapshots`, actualmente Jul 2025 a Mar 2026
 - Fields: yearMonth, portfolioValueUsd, depositsUsd, gainUsd, gainPct, sp500Value
+
+## Patrimonio y Objetivos
+- Tablas `wealth_snapshots` (cortes 1/3 y 1/9, auto vía cron `/api/wealth/snapshot` o manuales) y `goal_scenarios` (parámetros)
+- Fórmula anual: `valor × (1 + tasa) + aporte + bono[año] × factorBono`; el año X se mide el 1/3 de X+1
+- Bonos no se trackean en la app: se cargan a mano en los cortes
 
 ## Workflow
 - NUNCA commitear, pushear ni deployar sin preguntar al usuario primero
