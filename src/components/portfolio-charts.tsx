@@ -1,10 +1,22 @@
 "use client";
 
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   LineChart, Line, BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from "recharts";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
 
 interface MonthlySnapshot {
   yearMonth: string;
@@ -48,8 +60,9 @@ const LABEL_STYLE = { color: "#7a8189" };
 
 function PanelWrapper({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)" }}>
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)" }} className="pchart-panel">
       <div
+        className="pchart-panel__h"
         style={{
           padding: "10px 14px",
           borderBottom: "1px solid var(--border)",
@@ -63,7 +76,7 @@ function PanelWrapper({ title, children }: { title: string; children: React.Reac
       >
         {title}
       </div>
-      <div style={{ padding: 14 }}>{children}</div>
+      <div className="pchart-panel__b" style={{ padding: 14 }}>{children}</div>
     </div>
   );
 }
@@ -102,17 +115,30 @@ export function PortfolioCharts({ snapshots }: Props) {
     }));
   }, [snapshots]);
 
+  const isMobile = useIsMobile();
+  const mobileTick = { ...AXIS_TICK, fontSize: 9 };
+  const xTick = isMobile ? mobileTick : AXIS_TICK;
+  const yTick = isMobile ? mobileTick : AXIS_TICK;
+  const chartHeightTop = isMobile ? 220 : 260;
+  const chartHeightBot = isMobile ? 180 : 220;
+
   if (snapshots.length < 2) return null;
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 12 }} className="pchart-wrap">
+      <style>{`
+        @media (max-width: 767px) {
+          .pchart-panel__h { padding: 8px 12px !important; font-size: 9px !important; }
+          .pchart-panel__b { padding: 8px 4px 8px 0 !important; }
+        }
+      `}</style>
       {/* Evolution chart */}
       <PanelWrapper title="MI CARTERA VS S&P 500 · mismo dinero cada mes">
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={evolutionData}>
+        <ResponsiveContainer width="100%" height={chartHeightTop}>
+          <LineChart data={evolutionData} margin={isMobile ? { top: 5, right: 8, left: -10, bottom: 0 } : undefined}>
             <CartesianGrid strokeDasharray="2 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="month" tick={AXIS_TICK} />
-            <YAxis tick={AXIS_TICK} tickFormatter={tickFmtUsd} />
+            <XAxis dataKey="month" tick={xTick} interval={isMobile ? "preserveStartEnd" : 0} />
+            <YAxis tick={yTick} tickFormatter={tickFmtUsd} width={isMobile ? 38 : 60} />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
               labelStyle={LABEL_STYLE}
@@ -163,12 +189,13 @@ export function PortfolioCharts({ snapshots }: Props) {
 
       {/* Monthly gain bars */}
       <PanelWrapper title="GANANCIA MENSUAL · % portfolio">
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={gainData}>
+        <ResponsiveContainer width="100%" height={chartHeightBot}>
+          <BarChart data={gainData} margin={isMobile ? { top: 5, right: 8, left: -10, bottom: 0 } : undefined}>
             <CartesianGrid strokeDasharray="2 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="month" tick={AXIS_TICK} />
+            <XAxis dataKey="month" tick={xTick} interval={isMobile ? "preserveStartEnd" : 0} />
             <YAxis
-              tick={AXIS_TICK}
+              tick={yTick}
+              width={isMobile ? 38 : 60}
               tickFormatter={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
             />
             <Tooltip

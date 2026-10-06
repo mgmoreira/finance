@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Inter_Tight } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
@@ -18,6 +18,13 @@ const interTight = Inter_Tight({
 export const metadata: Metadata = {
   title: "FIN·TERM",
   description: "Portfolio tracker & home finance",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0a0e0d",
 };
 
 export default function RootLayout({

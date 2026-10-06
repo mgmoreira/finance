@@ -6,46 +6,74 @@ import type { CryptoSummary, CryptoPosition, CryptoMonthlySnapshot } from "@/lib
 import { HideToggle } from "@/components/hide-toggle";
 
 const T1_CSS = `
-.t1c-wrap { background: #0a0e13; min-height: 100vh; font-family: 'Courier New', Courier, monospace; color: #c8d4e0; font-size: 11px; }
+.t1c-wrap { background: #0a0e13; min-height: 100vh; font-family: 'Courier New', Courier, monospace; color: #c8d4e0; font-size: 13px; }
 .t1c-bar { position: sticky; top: 0; z-index: 20; background: #0a0e13; border-bottom: 2px solid #1e2530; }
 .t1c-bar__inner { display: flex; align-items: stretch; max-width: 1600px; margin: 0 auto; flex-wrap: wrap; }
-.t1c-bar__title { display: flex; align-items: center; color: #f0a500; font-weight: 700; font-size: 11px; letter-spacing: 0.15em; padding: 0 16px; border-right: 1px solid #1e2530; white-space: nowrap; }
+.t1c-bar__title { display: flex; align-items: center; color: #f0a500; font-weight: 700; font-size: 12px; letter-spacing: 0.15em; padding: 0 16px; border-right: 1px solid #1e2530; white-space: nowrap; }
 .t1c-stats { display: flex; flex: 1; flex-wrap: wrap; }
-.t1c-stat { padding: 8px 16px; border-right: 1px solid #1e2530; min-width: 100px; }
-.t1c-stat__l { font-size: 9px; letter-spacing: 0.1em; color: #7a8189; display: block; margin-bottom: 2px; }
-.t1c-stat__v { font-size: 15px; font-weight: 700; color: #c8d4e0; display: block; }
+.t1c-stat { padding: 8px 18px; border-right: 1px solid #1e2530; min-width: 120px; }
+.t1c-stat__l { font-size: 10px; letter-spacing: 0.1em; color: #9aa5b1; display: block; margin-bottom: 3px; }
+.t1c-stat__v { font-size: 17px; font-weight: 700; color: #c8d4e0; display: block; }
 .t1c-stat.pos .t1c-stat__v { color: #00c853; }
 .t1c-stat.neg .t1c-stat__v { color: #ff3b3b; }
 .t1c-stat.neutral .t1c-stat__v { color: #c8d4e0; }
 .t1c-bar__actions { display: flex; align-items: center; gap: 8px; padding: 0 12px; margin-left: auto; }
-.t1c-ts { font-size: 9px; color: #4a5568; }
-.t1c-pn { background: #111519; border: 1px solid #1e2530; margin: 12px 16px; }
-.t1c-pn__h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #1e2530; background: #0d1117; flex-wrap: wrap; }
-.t1c-pn__h b { font-size: 10px; letter-spacing: 0.12em; color: #f0a500; }
-.t1c-pn__h span { font-size: 9px; color: #7a8189; }
+.t1c-ts { font-size: 10px; color: #6b7a8a; }
+.t1c-body { max-width: 1600px; margin: 0 auto; padding: 14px 14px; display: grid; gap: 12px; }
+.t1c-pn { background: #111519; border: 1px solid #1e2530; }
+.t1c-pn__h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid #1e2530; background: #0d1117; flex-wrap: wrap; }
+.t1c-pn__h b { font-size: 11px; letter-spacing: 0.12em; color: #f0a500; }
+.t1c-pn__h span { font-size: 10px; color: #9aa5b1; }
 .t1c-tbl { width: 100%; border-collapse: collapse; }
-.t1c-tbl th { padding: 5px 8px; font-size: 9px; letter-spacing: 0.08em; color: #7a8189; border-bottom: 1px solid #1e2530; text-align: right; white-space: nowrap; user-select: none; cursor: pointer; }
-.t1c-tbl th.l { text-align: left; cursor: pointer; }
+.t1c-tbl th { padding: 6px 10px; font-size: 10px; letter-spacing: 0.08em; color: #9aa5b1; border-bottom: 1px solid #1e2530; text-align: right; white-space: nowrap; user-select: none; cursor: pointer; }
+.t1c-tbl th.l { text-align: left; }
 .t1c-tbl th:hover { color: #c8d4e0; }
-.t1c-tbl td { padding: 5px 8px; border-bottom: 1px solid #131920; text-align: right; vertical-align: middle; font-size: 11px; }
+.t1c-tbl td { padding: 6px 10px; border-bottom: 1px solid #131920; text-align: right; vertical-align: middle; font-size: 13px; }
 .t1c-tbl td.l { text-align: left; }
 .t1c-tbl tr:hover td { background: #161c24; }
-.t1c-tbl tfoot td { border-top: 1px solid #1e2530; background: #0d1117; font-weight: 700; font-size: 10px; }
-.t1c-btn { background: #1a2030; border: 1px solid #2a3545; color: #c8d4e0; font-size: 9px; letter-spacing: 0.08em; padding: 4px 12px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.t1c-tbl tfoot td { border-top: 1px solid #1e2530; background: #0d1117; font-weight: 700; font-size: 12px; }
+.t1c-btn { background: #1a2030; border: 1px solid #2a3545; color: #c8d4e0; font-size: 10px; letter-spacing: 0.08em; padding: 5px 14px; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .t1c-btn:hover { background: #243040; }
 .t1c-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.t1c-inp { background: #1a2030; border: 1px solid #2a3545; color: #c8d4e0; font-size: 10px; padding: 3px 8px; font-family: inherit; outline: none; }
+.t1c-inp { background: #1a2030; border: 1px solid #2a3545; color: #c8d4e0; font-size: 12px; padding: 4px 10px; font-family: inherit; outline: none; }
 .t1c-inp:focus { border-color: #f0a500; }
-.t1c-inp::placeholder { color: #4a5568; }
+.t1c-inp::placeholder { color: #6b7a8a; }
 .t1c-up { color: #00c853; }
 .t1c-down { color: #ff3b3b; }
-.t1c-mute { color: #7a8189; }
-.t1c-tk { font-weight: 700; font-size: 11px; }
-.t1c-nm { font-size: 9px; color: #7a8189; }
+.t1c-mute { color: #9aa5b1; }
+.t1c-tk { font-weight: 700; font-size: 13px; }
+.t1c-nm { font-size: 11px; color: #9aa5b1; }
 .t1c-col-p { background: rgba(30,80,150,0.07); }
 .t1c-col-v { background: rgba(0,100,50,0.07); }
-.t1c-mbar { display: inline-block; height: 4px; vertical-align: middle; border-radius: 1px; }
-.t1c-notes { padding: 8px 16px 16px; color: #4a5568; font-size: 9px; line-height: 1.8; }
+.t1c-mbar { display: inline-block; height: 5px; vertical-align: middle; border-radius: 1px; }
+.t1c-notes { color: #6b7a8a; font-size: 11px; line-height: 1.9; }
+.t1c-qty { color: #b0bcc8; }
+
+@media (max-width: 767px) {
+  .t1c-wrap { font-size: 11px; }
+  .t1c-bar { border-bottom-width: 1px; }
+  .t1c-bar__inner { flex-direction: column; }
+  .t1c-bar__title { border-right: none; border-bottom: 1px solid #1e2530; padding: 7px 12px; font-size: 11px; width: 100%; justify-content: flex-start; }
+  .t1c-stats { width: 100%; }
+  .t1c-stat { flex: 1; min-width: 0; padding: 7px 10px; }
+  .t1c-stat__l { font-size: 9px; margin-bottom: 1px; }
+  .t1c-stat__v { font-size: 13px; }
+  .t1c-stat__v[data-money] span { font-size: 9px !important; margin-left: 3px !important; }
+  .t1c-bar__actions { width: 100%; padding: 6px 12px; border-top: 1px solid #1e2530; gap: 6px; justify-content: flex-end; margin-left: 0; }
+  .t1c-ts { font-size: 9px; }
+  .t1c-body { padding: 10px; gap: 10px; }
+  .t1c-pn__h { padding: 7px 10px; gap: 6px; }
+  .t1c-pn__h b { font-size: 10px; }
+  .t1c-pn__h span { font-size: 9px; }
+  .t1c-tbl th { padding: 5px 7px; font-size: 9px; }
+  .t1c-tbl td { padding: 5px 7px; font-size: 11px; }
+  .t1c-tbl tfoot td { font-size: 10px; }
+  .t1c-tk { font-size: 11px; }
+  .t1c-nm { font-size: 9px; }
+  .t1c-btn { font-size: 9px; padding: 4px 10px; }
+  .t1c-inp { font-size: 11px; padding: 4px 8px; }
+  .t1c-notes { font-size: 10px; line-height: 1.7; padding: 4px 4px 8px; }
+}
 `;
 
 type SortKey = "ticker" | "quantity" | "entryPriceUsd" | "priceUsd" | "invested" | "currentValue" | "pnl" | "pnlPct" | "portfolioPct";
@@ -167,6 +195,8 @@ export function CryptoPortfolio({ summary, monthlySnapshots }: Props) {
           </div>
         </div>
 
+        <div className="t1c-body">
+
         {/* ── Positions panel ── */}
         <div className="t1c-pn">
           <div className="t1c-pn__h">
@@ -204,7 +234,7 @@ export function CryptoPortfolio({ summary, monthlySnapshots }: Props) {
                       <div className="t1c-tk">{p.ticker}</div>
                       <div className="t1c-nm">{p.name}</div>
                     </td>
-                    <td style={{ color: "#7a8189", fontSize: 10 }}>{fmtQty(p.quantity)}</td>
+                    <td className="t1c-qty">{fmtQty(p.quantity)}</td>
                     <td className="t1c-col-p" style={{ color: "#6b8fc4" }} data-money>
                       {fmtPrice(p.entryPriceUsd)}
                     </td>
@@ -324,6 +354,7 @@ export function CryptoPortfolio({ summary, monthlySnapshots }: Props) {
           <div>* Evolución mensual: solo incluye holdings con ticker de Yahoo Finance.</div>
         </div>
 
+        </div> {/* end t1c-body */}
       </div>
     </>
   );

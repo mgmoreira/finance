@@ -26,7 +26,7 @@ export default async function Home() {
     <main data-section="investments" style={{ minHeight: "100vh" }}>
       <DashboardHeader summary={summary} />
 
-      <div style={{ padding: "14px", display: "grid", gap: 12, maxWidth: 1600, margin: "0 auto" }}>
+      <div className="page-wrap" style={{ padding: "14px", display: "grid", gap: 12, maxWidth: 1600, margin: "0 auto" }}>
         {/* Refresh button */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <RefreshButton lastUpdated={summary.lastUpdated} />

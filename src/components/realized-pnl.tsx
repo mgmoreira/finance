@@ -63,8 +63,8 @@ export function RealizedPnl({ data }: { data: RealizedPnlData }) {
         </span>
       </div>
 
-      {/* Per-ticker rows */}
-      <div>
+      {/* Per-ticker rows — DESKTOP */}
+      <div className="hidden md:block">
         {data.byTicker.map((t) => {
           const up = t.totalGainUsd >= 0;
           const isOpen = expanded.has(t.ticker);
@@ -215,6 +215,122 @@ export function RealizedPnl({ data }: { data: RealizedPnlData }) {
                     </span>
                     <span />
                     <span />
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per-ticker rows — MOBILE */}
+      <div className="md:hidden">
+        {data.byTicker.map((t) => {
+          const up = t.totalGainUsd >= 0;
+          const isOpen = expanded.has(t.ticker);
+          const multi = t.sells.length > 1;
+          return (
+            <div key={t.ticker} style={{ borderBottom: "1px solid var(--border)" }}>
+              {/* Top row */}
+              <div
+                onClick={() => multi && toggle(t.ticker)}
+                style={{
+                  padding: "10px 12px",
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: 8,
+                  cursor: multi ? "pointer" : "default",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{t.ticker}</span>
+                    {multi && (
+                      <span style={{ ...mono, fontSize: 10, color: "var(--text-mute)" }}>
+                        {isOpen ? "▾" : "▸"} {t.sells.length}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ ...mono, fontSize: 9.5, color: "var(--text-mute)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t.name}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ ...mono, fontSize: 12, fontWeight: 700, color: up ? "var(--up)" : "var(--down)", fontVariantNumeric: "tabular-nums" }} data-money>
+                    {fmtGain(t.totalGainUsd)}
+                  </div>
+                  <div style={{ ...mono, fontSize: 10, color: up ? "var(--up)" : "var(--down)", marginTop: 1 }}>
+                    {fmtPct(t.totalGainPct)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cost / received row */}
+              <div
+                style={{
+                  padding: "0 12px 9px",
+                  display: "flex",
+                  gap: 12,
+                  ...mono,
+                  fontSize: 10,
+                  color: "var(--text-dim)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <span>
+                  <span style={{ color: "var(--text-mute)" }}>Costo </span>
+                  <span data-money>{fmtUsd(t.totalCostUsd)}</span>
+                </span>
+                <span>
+                  <span style={{ color: "var(--text-mute)" }}>Recibido </span>
+                  <span data-money>{fmtUsd(t.totalReceivedUsd)}</span>
+                </span>
+              </div>
+
+              {/* Expanded sells */}
+              {isOpen && multi && (
+                <div style={{ background: "var(--bg)", borderTop: "1px solid var(--border)" }}>
+                  {t.sells.map((sell) => {
+                    const sellUp = sell.realizedGainUsd >= 0;
+                    return (
+                      <div
+                        key={sell.id}
+                        style={{
+                          padding: "8px 12px",
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto",
+                          gap: 8,
+                          borderBottom: "1px solid var(--border)",
+                          ...mono,
+                          fontSize: 10.5,
+                        }}
+                      >
+                        <div>
+                          <div style={{ color: "var(--text-dim)" }}>{formatDate(sell.date)} · {sell.quantity.toLocaleString("en-US")}u</div>
+                          <div style={{ color: "var(--text-mute)", fontSize: 9.5, marginTop: 1, fontVariantNumeric: "tabular-nums" }}>
+                            {fmtPrice(sell.avgCostUsd)} → {fmtPrice(sell.sellPriceUsd)}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ color: sellUp ? "var(--up)" : "var(--down)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }} data-money>
+                            {fmtGain(sell.realizedGainUsd)}
+                          </div>
+                          <div style={{ color: sellUp ? "var(--up)" : "var(--down)", fontSize: 9.5 }}>
+                            {fmtPct(sell.realizedGainPct)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Single sell — show date inline (no expand) */}
+              {!isOpen && !multi && (() => {
+                const sell = t.sells[0];
+                return (
+                  <div style={{ padding: "0 12px 9px", ...mono, fontSize: 9.5, color: "var(--text-mute)", fontVariantNumeric: "tabular-nums" }}>
+                    {formatDate(sell.date)} · {sell.quantity.toLocaleString("en-US")}u · {fmtPrice(sell.avgCostUsd)} → {fmtPrice(sell.sellPriceUsd)}
                   </div>
                 );
               })()}

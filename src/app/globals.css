@@ -80,3 +80,18 @@ input[type="month"]::-webkit-calendar-picker-indicator {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--panel); }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
+/* Mobile-only helpers — desktop never matches these */
+@media (max-width: 767px) {
+  /* prevent horizontal page scroll caused by inner-overflow elements */
+  html, body { overflow-x: hidden; }
+  body { -webkit-text-size-adjust: 100%; }
+
+  /* tighter outer padding for the main page wrappers */
+  .page-wrap { padding: 10px !important; gap: 10px !important; }
+
+  /* show-on-mobile / hide-on-mobile utilities (paired with md:hidden / hidden md:block) */
+  .mobile-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mobile-no-scrollbar::-webkit-scrollbar { display: none; }
+  .mobile-no-scrollbar { scrollbar-width: none; }
+}

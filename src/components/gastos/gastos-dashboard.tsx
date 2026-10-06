@@ -256,7 +256,7 @@ export function GastosDashboard({
       </div>
 
       {/* ── Content ── */}
-      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="page-wrap" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
 
         {/* ══ MES TAB ══ */}
         {activeTab === "mes" && (

@@ -134,9 +134,17 @@ export function SummaryCards({
   const sectorRows = bySector.map((s) => ({ label: s.label, value: s.value, pct: s.pct }));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-      <AllocationPanel title="Por país" rows={countryRows} hueMap={PAIS_HUES} />
-      <AllocationPanel title="Por sector" rows={sectorRows} hueMap={SECTOR_HUES} />
-    </div>
+    <>
+      <style>{`
+        .sumcards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 767px) {
+          .sumcards-grid { grid-template-columns: 1fr; gap: 10px; }
+        }
+      `}</style>
+      <div className="sumcards-grid">
+        <AllocationPanel title="Por país" rows={countryRows} hueMap={PAIS_HUES} />
+        <AllocationPanel title="Por sector" rows={sectorRows} hueMap={SECTOR_HUES} />
+      </div>
+    </>
   );
 }

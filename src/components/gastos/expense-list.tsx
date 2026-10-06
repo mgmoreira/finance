@@ -122,7 +122,13 @@ export function ExpenseList({ expenses, categories, budgetId, onMutate, triggerA
       {/* Add form */}
       {showAdd && (
         <div style={{ padding: 12, borderBottom: "1px solid var(--border-strong)", background: "var(--panel-alt)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, flexWrap: "wrap" }}>
+          <style>{`
+            .exp-add-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+            @media (max-width: 767px) {
+              .exp-add-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+            }
+          `}</style>
+          <div className="exp-add-grid">
             <input
               type="text"
               value={newName}
@@ -190,30 +196,86 @@ export function ExpenseList({ expenses, categories, budgetId, onMutate, triggerA
           </thead>
           <tbody>
             {/* Pending rows first */}
-            {pending.map((exp) => (
-              <tr
-                key={exp.id}
-                className={`t1-pend${exp.templateId ? " t1-fix" : " t1-var"}`}
-                style={{ cursor: "pointer" }}
-                onClick={() => startEdit(exp)}
-              >
-                <td style={{ color: "var(--text-dim)", fontSize: 10 }}>—</td>
-                <td>
-                  {exp.name}
-                  {exp.templateId && <span style={{ color: "var(--text-mute)", marginLeft: 6, fontSize: 9 }}>↻</span>}
-                </td>
-                <td>
-                  {exp.categoryName && (
-                    <span style={{ color: exp.categoryColor ?? "var(--text-dim)", fontSize: 10 }}>
-                      ▪ {exp.categoryName}
-                    </span>
-                  )}
-                </td>
-                <td><span className="pill pend">PEND</span></td>
-                <td className="r" style={{ color: "var(--accent)", fontSize: 10 }}>CARGAR</td>
-                <td />
-              </tr>
-            ))}
+            {pending.map((exp) => {
+              const isEditing = editingId === exp.id;
+              if (isEditing) {
+                return (
+                  <tr key={exp.id} className="t1-edit">
+                    <td>
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="t1-inp"
+                        style={{ width: 110, fontSize: 10 }}
+                      />
+                    </td>
+                    <td style={{ color: "var(--text)", fontWeight: 600 }}>{exp.name}</td>
+                    <td>
+                      {exp.categoryName && (
+                        <span style={{ color: exp.categoryColor ?? "var(--text-dim)", fontSize: 10 }}>
+                          ▪ {exp.categoryName}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        placeholder="Notas"
+                        className="t1-inp"
+                        style={{ width: 100, fontSize: 10 }}
+                      />
+                    </td>
+                    <td className="r">
+                      <MoneyInput
+                        value={editAmount}
+                        onChange={setEditAmount}
+                        placeholder="Monto"
+                        className="t1-inp"
+                        style={{ width: 110, textAlign: "right" }}
+                        autoFocus
+                      />
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button className="t1-btn accent" style={{ padding: "2px 7px", fontSize: 9 }} onClick={saveEdit} disabled={saving}>
+                          {saving ? "..." : "OK"}
+                        </button>
+                        <button className="t1-btn" style={{ padding: "2px 7px", fontSize: 9 }} onClick={() => setEditingId(null)}>
+                          ✕
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+              return (
+                <tr
+                  key={exp.id}
+                  className={`t1-pend${exp.templateId ? " t1-fix" : " t1-var"}`}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => startEdit(exp)}
+                >
+                  <td style={{ color: "var(--text-dim)", fontSize: 10 }}>—</td>
+                  <td>
+                    {exp.name}
+                    {exp.templateId && <span style={{ color: "var(--text-mute)", marginLeft: 6, fontSize: 9 }}>↻</span>}
+                  </td>
+                  <td>
+                    {exp.categoryName && (
+                      <span style={{ color: exp.categoryColor ?? "var(--text-dim)", fontSize: 10 }}>
+                        ▪ {exp.categoryName}
+                      </span>
+                    )}
+                  </td>
+                  <td><span className="pill pend">PEND</span></td>
+                  <td className="r" style={{ color: "var(--accent)", fontSize: 10 }}>CARGAR</td>
+                  <td />
+                </tr>
+              );
+            })}
 
             {/* Completed rows */}
             {completed.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")).map((exp) => {
